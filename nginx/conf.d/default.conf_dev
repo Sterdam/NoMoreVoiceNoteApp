@@ -1,17 +1,12 @@
 server {
     listen 80;
-    server_name ${DOMAIN};
+    server_name localhost;
 
     # Frontend static files
     location / {
         root /usr/share/nginx/html;
         index index.html;
         try_files $uri $uri/ /index.html;
-
-        # Basic security headers
-        add_header X-Frame-Options "SAMEORIGIN";
-        add_header X-XSS-Protection "1; mode=block";
-        add_header X-Content-Type-Options "nosniff";
     }
 
     # Backend API proxy
@@ -27,12 +22,11 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
 
         # CORS headers
-        add_header 'Access-Control-Allow-Origin' '$http_origin' always;
+        add_header 'Access-Control-Allow-Origin' '*' always;
         add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS' always;
         add_header 'Access-Control-Allow-Headers' 'Accept,Authorization,Cache-Control,Content-Type,DNT,If-Modified-Since,Keep-Alive,Origin,User-Agent,X-Requested-With' always;
-        add_header 'Access-Control-Allow-Credentials' 'true' always;
 
-        # Timeouts for long running requests
+        # Increase timeouts for long running requests
         proxy_connect_timeout 60s;
         proxy_send_timeout 60s;
         proxy_read_timeout 60s;
@@ -41,7 +35,5 @@ server {
     # Healthcheck endpoint
     location /health {
         proxy_pass http://app:3000/health;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
     }
 }
