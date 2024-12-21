@@ -18,7 +18,7 @@ class WhisperService {
         });
 
         this.config = {
-            model: process.env.WHISPER_MODEL || 'base',
+            model: process.env.WHISPER_MODEL || 'medium', // Changé en medium pour de meilleurs résultats
             modelsPath: path.join(process.cwd(), 'models'),
             tempPath: path.join(process.cwd(), 'temp')
         };
@@ -28,13 +28,9 @@ class WhisperService {
 
     async initialize() {
         try {
-            // Création des dossiers nécessaires s'ils n'existent pas
             await fs.mkdir(this.config.modelsPath, { recursive: true });
             await fs.mkdir(this.config.tempPath, { recursive: true });
-
-            // Vérification de l'installation de Whisper
             await this.checkWhisperInstallation();
-
             LogService.info('WhisperService initialized successfully');
         } catch (error) {
             LogService.error('WhisperService initialization error:', error);
@@ -59,7 +55,6 @@ class WhisperService {
             try {
                 LogService.info('Preloading Whisper model:', { model: this.config.model });
                 
-                // Commande de préchargement du modèle
                 const command = `whisper --model ${this.config.model} --language French --model_dir ${this.config.modelsPath} --device cpu`;
                 const { stdout, stderr } = await execAsync(command);
                 
@@ -82,39 +77,37 @@ class WhisperService {
         const startTime = Date.now();
 
         try {
-            // Vérifier que le fichier existe
             await fs.access(filePath);
-
-            // Convertir en WAV pour une meilleure qualité
             wavFile = await this.convertToWav(filePath);
             
-            // Configuration de la transcription
             const transcriptionOptions = {
                 model: options.model || this.config.model,
                 language: options.language || 'French',
                 device: options.device || 'cpu',
-                temperature: options.temperature || 0.2,
-                bestOf: options.bestOf || 5,
-                beamSize: options.beamSize || 5,
+                temperature: 0.1, // Réduit pour plus de précision
+                bestOf: 8, // Augmenté pour plus de candidats
+                beamSize: 10, // Augmenté pour une meilleure exploration
                 wordTimestamps: true,
-                outputFormats: ['txt', 'vtt', 'json']
+                outputFormats: ['txt', 'vtt', 'json'],
+                initial_prompt: "Transcription d'un message vocal WhatsApp en français.",
+                condition_on_previous_text: true,
+                no_speech_threshold: 0.6,
+                compression_ratio_threshold: 2.4,
+                logprob_threshold: -1.0
             };
 
             const command = this.buildTranscriptionCommand(wavFile, transcriptionOptions);
             LogService.info('Starting transcription:', { userId, command });
 
             const { stdout, stderr } = await execAsync(command);
-            
-            // Traiter les résultats
             const results = await this.processTranscriptionResults(wavFile);
             const processingTime = Date.now() - startTime;
             
-            // Enrichir les résultats avec des métadonnées
             return {
                 text: results.text,
                 segments: results.segments,
                 language: results.language,
-                confidence: this.calculateConfidence(stderr),
+                confidence: this.calculateConfidence(results.segments),
                 duration: results.duration,
                 metadata: {
                     originalFilename,
@@ -128,7 +121,6 @@ class WhisperService {
             LogService.error('Transcription error:', { userId, error });
             throw new Error(`Transcription failed: ${error.message}`);
         } finally {
-            // Nettoyage des fichiers temporaires
             await this.cleanup(wavFile);
         }
     }
@@ -136,7 +128,7 @@ class WhisperService {
     buildTranscriptionCommand(inputFile, options) {
         const commandParts = [
             'whisper',
-            inputFile,
+            `"${inputFile}"`,
             `--model ${options.model}`,
             `--language ${options.language}`,
             `--device ${options.device}`,
@@ -145,8 +137,13 @@ class WhisperService {
             `--temperature ${options.temperature}`,
             `--best_of ${options.bestOf}`,
             `--beam_size ${options.beamSize}`,
-            `--output_dir ${this.config.tempPath}`,
-            '--verbose False'
+            '--condition_on_previous_text True',
+            `--no_speech_threshold ${options.no_speech_threshold}`,
+            `--compression_ratio_threshold ${options.compression_ratio_threshold}`,
+            `--logprob_threshold ${options.logprob_threshold}`,
+            `--output_dir "${this.config.tempPath}"`,
+            '--verbose False',
+            `--initial_prompt "${options.initial_prompt}"`
         ];
 
         return commandParts.join(' ');
@@ -158,10 +155,22 @@ class WhisperService {
                 this.config.tempPath,
                 `${path.basename(inputFile, path.extname(inputFile))}.wav`
             );
-
-            const command = `ffmpeg -i ${inputFile} -ar 16000 -ac 1 -c:a pcm_s16le ${outputFile}`;
+    
+            // Commande ffmpeg améliorée pour une meilleure qualité audio
+            const command = `ffmpeg -i "${inputFile}" \
+                -ar 16000 \
+                -ac 1 \
+                -c:a pcm_s16le \
+                -vn \
+                -af "volume=1.5, \
+                    highpass=f=50, \
+                    lowpass=f=8000, \
+                    arnndn=m=/path/to/noise-model, \
+                    areverse,silenceremove=start_periods=1:start_duration=0.1:start_threshold=-50dB,areverse, \
+                    loudnorm=I=-16:LRA=11:TP=-1.5" \
+                -y "${outputFile}"`;
+    
             await execAsync(command);
-
             return outputFile;
         } catch (error) {
             LogService.error('Audio conversion error:', error);
@@ -177,7 +186,6 @@ class WhisperService {
             const jsonContent = await fs.readFile(resultsPath, 'utf8');
             const results = JSON.parse(jsonContent);
 
-            // Validation des résultats
             if (!results.text || !Array.isArray(results.segments)) {
                 throw new Error('Invalid transcription results format');
             }
@@ -203,19 +211,24 @@ class WhisperService {
         }));
     }
 
-    calculateConfidence(stderr) {
-        try {
-            if (!stderr) return null;
-            
-            const confidenceMatch = stderr.match(/confidence: (\d+\.\d+)/);
-            const confidence = confidenceMatch ? parseFloat(confidenceMatch[1]) : null;
-            
-            // Vérifier que la valeur est dans une plage valide (0-1)
-            return confidence !== null && confidence >= 0 && confidence <= 1 ? confidence : null;
-        } catch (error) {
-            LogService.warn('Error calculating confidence score:', error);
-            return null;
-        }
+    calculateConfidence(segments) {
+        if (!segments || segments.length === 0) return null;
+        
+        // Calcul amélioré de la confiance basé sur tous les segments
+        const confidences = segments
+            .filter(s => typeof s.confidence === 'number')
+            .map(s => s.confidence);
+
+        if (confidences.length === 0) return null;
+
+        // Moyenne pondérée par la longueur des segments
+        const totalWeight = segments.reduce((sum, s) => sum + (s.end - s.start), 0);
+        const weightedConfidence = segments.reduce((sum, s) => {
+            const weight = (s.end - s.start) / totalWeight;
+            return sum + (s.confidence || 0) * weight;
+        }, 0);
+
+        return Number(weightedConfidence.toFixed(4));
     }
 
     async cleanup(filePath) {

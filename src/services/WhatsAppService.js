@@ -76,7 +76,7 @@ class WhatsAppService {
 
     async handleVoiceMessage(message, userId) {
         try {
-            await message.reply('🎤 Message vocal reçu ! Transcription en cours...');
+            //await message.reply('🎤 Message vocal reçu ! Transcription en cours...');
             
             const media = await message.downloadMedia();
             const filename = `audio_${Date.now()}`;
@@ -102,7 +102,7 @@ class WhatsAppService {
                 await transcript.save();
                 
                 // Envoyer la transcription
-                await message.reply(`📝 Transcription:\n\n${transcription}`);
+                await message.reply(`📝 Transcription(peut contenir des erreurs):\n\n${transcription}`);
                 
             } catch (transcriptionError) {
                 LogService.error('Transcription error:', transcriptionError);
