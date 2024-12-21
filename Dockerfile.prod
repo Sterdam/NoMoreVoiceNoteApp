@@ -1,0 +1,60 @@
+# Dockerfile.prod
+# Utilisation d'une image de base légère et compatible
+FROM ubuntu:22.04
+
+# Éviter les interactions pendant l'installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Installation des dépendances système avec nettoyage dans la même couche pour réduire la taille
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    ffmpeg \
+    git \
+    curl \
+    chromium-browser \
+    python3-dev \
+    build-essential \
+    pkg-config \
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip3 install --no-cache-dir openai-whisper torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+# Configuration du workdir
+WORKDIR /app
+
+# Installation des dépendances Node.js
+COPY package*.json ./
+RUN npm ci --only=production && npm cache clean --force
+
+# Copie du code source
+COPY . .
+
+# Création des dossiers nécessaires avec les bonnes permissions
+RUN mkdir -p \
+    data/sessions \
+    data/temp \
+    data/models \
+    logs \
+    && chown -R node:node /app
+
+# Utilisation d'un utilisateur non-root pour la sécurité
+USER node
+
+# Variables d'environnement pour la production
+ENV NODE_ENV=production \
+    PORT=3000 \
+    WHISPER_MODEL=base \
+    PYTHONUNBUFFERED=1
+
+# Exposer le port
+EXPOSE 3000
+
+# Healthcheck pour s'assurer que l'application fonctionne
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+# Script de démarrage avec gestion des logs
+CMD ["npm", "start"]
