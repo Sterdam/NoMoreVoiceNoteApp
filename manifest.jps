@@ -1,0 +1,34 @@
+{
+  "jpsType": "install",
+  "application": {
+    "name": "WhatsApp Transcriber",
+    "shortDescription": "WhatsApp Voice Note Transcriber with Docker",
+    "env": {
+      "topology": {
+        "nodes": [
+          {
+            "nodeType": "docker",
+            "count": 1,
+            "cloudlets": 16,
+            "displayName": "Application Server"
+          }
+        ]
+      }
+    },
+    "onInstall": [
+      {
+        "deploy": {
+          "archive": "https://github.com/YOUR_USERNAME/whatsapp-transcriber/archive/main.zip",
+          "name": "whatsapp-transcriber",
+          "context": "ROOT"
+        }
+      },
+      {
+        "cmd[docker]": [
+          "cd ${SERVER_WEBROOT}",
+          "docker-compose -f docker-compose.jelastic.yml up -d --build"
+        ]
+      }
+    ]
+  }
+}
