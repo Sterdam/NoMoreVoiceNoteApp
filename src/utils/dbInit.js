@@ -1,7 +1,6 @@
+// src/utils/dbInit.js
 const mongoose = require('mongoose');
 const LogService = require('../services/LogService');
-const User = require('../models/User');
-const { Transcript } = require('../models/Transcript');
 
 async function initializeDatabase() {
   try {
@@ -9,130 +8,104 @@ async function initializeDatabase() {
 
     // 1. Vérifier la connexion MongoDB
     if (mongoose.connection.readyState !== 1) {
-      throw new Error('La connexion MongoDB n\'est pas établie');
-    }
-
-    // 2. Créer/Vérifier les collections de manière séquentielle
-    const db = mongoose.connection.db;
-    const collections = await db.listCollections().toArray();
-    const collectionNames = collections.map(c => c.name);
-    
-    for (const collName of ['users', 'transcripts']) {
-      if (!collectionNames.includes(collName)) {
-        await db.createCollection(collName);
-        LogService.info(`Collection ${collName} créée`);
+      LogService.warn('MongoDB pas encore connecté, attente...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      if (mongoose.connection.readyState !== 1) {
+        throw new Error('La connexion MongoDB n\'est pas établie');
       }
     }
 
-    // 3. Gérer les index de manière plus sélective
-    for (const collection of ['users', 'transcripts']) {
-      try {
-        // Obtenir les index existants
-        const existingIndexes = await db.collection(collection).listIndexes().toArray();
-        
-        // Supprimer uniquement les index non-_id qui pourraient causer des conflits
-        for (const index of existingIndexes) {
-          if (index.name !== '_id_') {
-            try {
-              await db.collection(collection).dropIndex(index.name);
-              LogService.info(`Index ${index.name} supprimé pour ${collection}`);
-            } catch (dropError) {
-              LogService.warn(`Impossible de supprimer l'index ${index.name}:`, dropError.message);
-            }
+    const db = mongoose.connection.db;
+    
+    // 2. Vérifier que la base de données existe
+    if (!db) {
+      LogService.error('Base de données non accessible');
+      return false;
+    }
+
+    // 3. Créer les collections si nécessaire
+    try {
+      const collections = await db.listCollections().toArray();
+      const collectionNames = collections.map(c => c.name);
+      
+      const requiredCollections = ['users', 'transcripts', 'subscriptions', 'usages'];
+      
+      for (const collName of requiredCollections) {
+        if (!collectionNames.includes(collName)) {
+          try {
+            await db.createCollection(collName);
+            LogService.info(`Collection ${collName} créée`);
+          } catch (error) {
+            LogService.warn(`Impossible de créer la collection ${collName}:`, error.message);
           }
         }
-      } catch (error) {
-        if (!error.message.includes('ns not found')) {
-          LogService.warn(`Avertissement lors de la gestion des index de ${collection}:`, error);
-        }
       }
+    } catch (error) {
+      LogService.warn('Impossible de lister les collections:', error.message);
     }
 
-    // 4. Créer les nouveaux index de manière séquentielle avec gestion d'erreur
+    // 4. Créer les index de manière sûre
     LogService.info('Création des index...');
     
     // Index pour Users
     try {
-      await db.collection('users').createIndex(
-        { email: 1 },
-        { 
-          unique: true,
-          background: true,
-          name: 'email_unique'
+      const userIndexes = [
+        { key: { email: 1 }, unique: true, name: 'email_1' },
+        { key: { whatsappNumber: 1 }, unique: true, name: 'whatsappNumber_1' },
+        { key: { apiKey: 1 }, sparse: true, name: 'apiKey_1' },
+        { key: { referralCode: 1 }, sparse: true, name: 'referralCode_1' }
+      ];
+
+      for (const index of userIndexes) {
+        try {
+          await db.collection('users').createIndex(index.key, {
+            unique: index.unique,
+            sparse: index.sparse,
+            name: index.name,
+            background: true
+          });
+          LogService.info(`Index ${index.name} créé pour users`);
+        } catch (error) {
+          if (error.code === 85 || error.code === 86) {
+            LogService.info(`Index ${index.name} existe déjà`);
+          } else if (error.code !== 11000) {
+            LogService.warn(`Erreur création index ${index.name}:`, error.message);
+          }
         }
-      );
-      LogService.info('Index email créé pour users');
-    } catch (error) {
-      if (error.code === 85) { // IndexOptionsConflict
-        LogService.warn('Index email existe déjà avec des options différentes');
-      } else if (error.code !== 11000) { // Pas une erreur de duplication
-        throw error;
       }
-    }
-    
-    try {
-      await db.collection('users').createIndex(
-        { whatsappNumber: 1 },
-        { 
-          unique: true,
-          background: true,
-          name: 'whatsapp_unique'
-        }
-      );
-      LogService.info('Index whatsappNumber créé pour users');
     } catch (error) {
-      if (error.code === 85) { // IndexOptionsConflict
-        LogService.warn('Index whatsappNumber existe déjà avec des options différentes');
-      } else if (error.code !== 11000) { // Pas une erreur de duplication
-        throw error;
-      }
+      LogService.error('Erreur lors de la création des index users:', error);
     }
 
     // Index pour Transcripts
     try {
-      await db.collection('transcripts').createIndex(
-        { userId: 1, createdAt: -1 },
-        { 
-          background: true,
-          name: 'userId_createdAt'
+      const transcriptIndexes = [
+        { key: { userId: 1, createdAt: -1 }, name: 'userId_createdAt' },
+        { key: { messageId: 1 }, name: 'messageId_1' },
+        { key: { status: 1 }, name: 'status_1' }
+      ];
+
+      for (const index of transcriptIndexes) {
+        try {
+          await db.collection('transcripts').createIndex(index.key, {
+            name: index.name,
+            background: true
+          });
+          LogService.info(`Index ${index.name} créé pour transcripts`);
+        } catch (error) {
+          if (error.code === 85 || error.code === 86) {
+            LogService.info(`Index ${index.name} existe déjà`);
+          } else {
+            LogService.warn(`Erreur création index ${index.name}:`, error.message);
+          }
         }
-      );
-      LogService.info('Index userId_createdAt créé pour transcripts');
-    } catch (error) {
-      if (error.code === 85) {
-        LogService.warn('Index userId_createdAt existe déjà avec des options différentes');
-      } else if (error.code !== 11000) {
-        throw error;
       }
+    } catch (error) {
+      LogService.error('Erreur lors de la création des index transcripts:', error);
     }
 
-    try {
-      await db.collection('transcripts').createIndex(
-        { messageId: 1 },
-        { 
-          background: true,
-          name: 'messageId'
-        }
-      );
-      LogService.info('Index messageId créé pour transcripts');
-    } catch (error) {
-      if (error.code === 85) {
-        LogService.warn('Index messageId existe déjà avec des options différentes');
-      } else if (error.code !== 11000) {
-        throw error;
-      }
-    }
-
-    // 5. Vérification finale des index
-    const userIndexes = await db.collection('users').listIndexes().toArray();
-    const transcriptIndexes = await db.collection('transcripts').listIndexes().toArray();
-
-    LogService.info('Index actuels:', {
-      users: userIndexes.map(i => ({ name: i.name, key: Object.keys(i.key) })),
-      transcripts: transcriptIndexes.map(i => ({ name: i.name, key: Object.keys(i.key) }))
-    });
-
-    LogService.info('Initialisation de la base de données terminée avec succès');
+    LogService.info('Initialisation de la base de données terminée');
     return true;
 
   } catch (error) {
@@ -140,7 +113,8 @@ async function initializeDatabase() {
       error: error.message,
       stack: error.stack
     });
-    throw error;
+    // Ne pas lancer l'erreur pour permettre à l'app de continuer
+    return false;
   }
 }
 
