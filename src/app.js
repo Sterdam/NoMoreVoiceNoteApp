@@ -14,6 +14,7 @@ const LogService = require('./services/LogService');
 const { doubleCsrfProtection, generateCSRFToken, validateCSRF, getCSRFToken } = require('./middlewares/csrf');
 const performanceOptimizer = require('./utils/performanceOptimizer');
 const { apiLimiter } = require('./middlewares/rateLimit');
+const { addLegalHeaders, checkGDPRCompliance, checkExportCompliance } = require('./middlewares/legal');
 
 // Import des routes
 const authRoutes = require('./routes/auth');
@@ -21,6 +22,7 @@ const transcriptRoutes = require('./routes/transcripts');
 const userRoutes = require('./routes/users');
 const paymentRoutes = require('./routes/payment');
 const healthRoutes = require('./routes/health');
+const legalRoutes = require('./routes/legal');
 
 // Création de l'application
 const app = express();
@@ -87,17 +89,36 @@ const configureApp = () => {
     // Cookie parser avec secret
     app.use(cookieParser(process.env.COOKIE_SECRET || 'your-secret-key'));
 
-    // Protection CSRF
-    app.use(doubleCsrfProtection);
+    // Protection CSRF (désactivé en développement)
+    if (process.env.NODE_ENV !== 'development') {
+        app.use(doubleCsrfProtection);
+    }
     
     // Route pour obtenir le token CSRF
     app.get('/api/csrf-token', getCSRFToken);
     
-    // Validation CSRF pour toutes les routes POST/PUT/DELETE
-    app.use(validateCSRF);
+    // Validation CSRF pour toutes les routes POST/PUT/DELETE (désactivé en développement)
+    if (process.env.NODE_ENV !== 'development') {
+        app.use(validateCSRF);
+    }
     
-    // Rate limiting global pour l'API
-    app.use('/api/', apiLimiter);
+    // Legal compliance and export control (désactivé temporairement en développement)
+    if (process.env.NODE_ENV !== 'development') {
+        app.use(addLegalHeaders);
+        app.use(checkGDPRCompliance);
+        app.use(checkExportCompliance);
+    } else {
+        // Headers légaux basiques en développement
+        app.use((req, res, next) => {
+            res.setHeader('X-Legal-Notice', 'Development mode - full legal compliance disabled');
+            next();
+        });
+    }
+    
+    // Rate limiting global pour l'API (désactivé en développement pour éviter les erreurs Redis)
+    if (process.env.NODE_ENV !== 'development') {
+        app.use('/api/', apiLimiter);
+    }
     
     // Headers de sécurité supplémentaires
     app.use((req, res, next) => {
@@ -112,11 +133,15 @@ const configureApp = () => {
     // Fichiers statiques avec options optimisées
     app.use(express.static(path.join(__dirname, 'public'), performanceOptimizer.getStaticFileOptions()));
 
+    // CSRF token endpoint (before other routes)
+    app.get('/api/csrf-token', getCSRFToken);
+    
     // Routes API
     app.use('/api/auth', authRoutes);
     app.use('/api/transcripts', transcriptRoutes);
     app.use('/api/users', userRoutes);
     app.use('/api/payment', paymentRoutes);
+    app.use('/api/legal', legalRoutes);
     
     // Health check routes (sans CSRF)
     app.use('/', healthRoutes);
@@ -248,6 +273,7 @@ const startServer = async () => {
             error: error.message,
             stack: error.stack
         });
+        console.error('Erreur complète:', error);
         process.exit(1);
     }
 };

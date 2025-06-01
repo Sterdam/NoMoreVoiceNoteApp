@@ -1,7 +1,7 @@
 // src/routes/auth.js
 const express = require('express');
 const router = express.Router();
-const User = require('../models/User');
+const User = require('../models/UserSimple');
 const { auth } = require('../middlewares/auth');
 const LogService = require('../services/LogService');
 const { validate, registrationValidation, loginValidation } = require('../middlewares/validation');
@@ -14,6 +14,7 @@ router.post('/register', validate(registrationValidation), async (req, res) => {
         LogService.info('Tentative d\'inscription:', { email, whatsappNumber });
 
         // Les validations sont déjà effectuées par le middleware
+        LogService.info('Validation terminée, création de l\'utilisateur...');
 
         // Création de l'utilisateur
         const user = new User({
@@ -22,7 +23,9 @@ router.post('/register', validate(registrationValidation), async (req, res) => {
             whatsappNumber
         });
 
+        LogService.info('Instance utilisateur créée, sauvegarde...');
         await user.save();
+        LogService.info('Utilisateur sauvé avec succès');
         const token = user.generateAuthToken();
 
         // Configuration des cookies

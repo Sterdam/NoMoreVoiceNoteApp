@@ -8,6 +8,12 @@ const QueueService = require('../services/QueueService');
 const { Usage } = require('../models/Usage');
 const { Subscription } = require('../models/Subscription');
 const { transcriptionLimiter } = require('../middlewares/rateLimit');
+const { 
+    addLegalDisclaimers, 
+    validateLegalConsent, 
+    validateContentCompliance, 
+    auditLog 
+} = require('../middlewares/legal');
 
 // Important : les routes spécifiques doivent être AVANT les routes avec paramètres
 
@@ -116,7 +122,15 @@ router.get('/whatsapp-status', auth, async (req, res) => {
 });
 
 // Créer une nouvelle transcription (via upload ou WhatsApp)
-router.post('/transcribe', auth, transcriptionLimiter, checkPlanLimits, async (req, res) => {
+router.post('/transcribe', 
+    auth, 
+    validateLegalConsent,
+    validateContentCompliance,
+    process.env.NODE_ENV !== 'development' ? transcriptionLimiter : (req, res, next) => next(), 
+    checkPlanLimits, 
+    auditLog('transcription_request'),
+    addLegalDisclaimers('transcription'),
+    async (req, res) => {
     try {
         const { filePath, language = 'auto', autoSummarize = false, messageId } = req.body;
         

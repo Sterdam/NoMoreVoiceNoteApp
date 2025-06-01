@@ -90,27 +90,7 @@ const userSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Générer un code de parrainage unique
-userSchema.pre('save', async function(next) {
-    if (this.isModified('password')) {
-        this.password = await bcrypt.hash(this.password, 12);
-    }
-    
-    if (!this.encryptionKey) {
-        this.encryptionKey = crypto.randomBytes(32).toString('hex');
-    }
-    
-    if (!this.referralCode) {
-        this.referralCode = this.generateReferralCode();
-    }
-    
-    if (!this.apiKey && this.role === 'user') {
-        this.apiKey = this.generateApiKey();
-    }
-    
-    next();
-});
-
+// Méthodes d'instance (définies avant le hook pre-save)
 userSchema.methods = {
     generateAuthToken() {
         return jwt.sign(
@@ -189,6 +169,14 @@ userSchema.methods.toJSON = function() {
     delete user.encryptionKey;
     return user;
 };
+
+// Hook pre-save simplifié pour tester
+userSchema.pre('save', async function(next) {
+    if (this.isModified('password')) {
+        this.password = await bcrypt.hash(this.password, 12);
+    }
+    next();
+});
 
 const User = mongoose.model('User', userSchema);
 module.exports = User;

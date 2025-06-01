@@ -31,12 +31,17 @@ const generateCSRFToken = (req, res, next) => {
 
 // Middleware pour valider le token CSRF
 const validateCSRF = (req, res, next) => {
+    // En mode développement, être plus permissif
+    if (process.env.NODE_ENV === 'development') {
+        return next();
+    }
+
     // Ignorer la validation pour certaines routes
     const ignorePaths = [
         '/api/payment/webhook', // Webhook Stripe
-        '/api/auth/login',
-        '/api/auth/register',
-        '/health'
+        '/health',
+        '/api/csrf-token',
+        '/api/legal'
     ];
 
     if (ignorePaths.some(path => req.path.startsWith(path))) {
@@ -67,8 +72,13 @@ const validateCSRF = (req, res, next) => {
 
 // Route pour obtenir un nouveau token CSRF
 const getCSRFToken = (req, res) => {
-    const token = generateToken(req, res);
-    res.json({ csrfToken: token });
+    try {
+        const token = generateToken(req, res);
+        res.json({ csrfToken: token });
+    } catch (error) {
+        LogService.error('Error generating CSRF token:', error);
+        res.status(500).json({ error: 'Failed to generate CSRF token' });
+    }
 };
 
 module.exports = {

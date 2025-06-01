@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
-import { Mail, Lock, Eye, EyeOff, Mic, ArrowRight } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Mic, ArrowRight, MessageSquare } from 'lucide-react';
 import { auth } from '../utils/api';
 import { useAuthStore } from '../stores/useStore';
 import { Button } from '../components/ui/Button';

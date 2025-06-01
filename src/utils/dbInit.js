@@ -99,3 +99,7 @@ async function initializeDatabase() {
     throw error;
   }
 }
+
+module.exports = {
+  initializeDatabase
+};

@@ -241,13 +241,13 @@ export default function Register() {
                 />
                 <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
                   J'accepte les{' '}
-                  <a href="#" className="text-primary-600 hover:text-primary-500">
+                  <Link to="/terms" target="_blank" className="text-primary-600 hover:text-primary-500">
                     conditions d'utilisation
-                  </a>{' '}
+                  </Link>{' '}
                   et la{' '}
-                  <a href="#" className="text-primary-600 hover:text-primary-500">
+                  <Link to="/privacy" target="_blank" className="text-primary-600 hover:text-primary-500">
                     politique de confidentialité
-                  </a>
+                  </Link>
                 </span>
               </label>
               {errors.terms && (

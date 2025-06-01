@@ -4,10 +4,9 @@ services:
   # Frontend avec hot reload
   frontend:
     build:
-      context: ./frontend
-      target: deps
+      context: .
+      dockerfile: frontend.Dockerfile
     container_name: voxkill-frontend-dev
-    command: npm run dev
     volumes:
       - ./frontend:/app
       - /app/node_modules
