@@ -28,6 +28,7 @@
     "node-cache": "^5.1.2",
     "puppeteer": "^21.6.1",
     "qrcode": "^1.5.3",
+    "rate-limit-redis": "^4.0.0",
     "redis": "^4.6.10",
     "stripe": "^18.2.0",
     "validator": "^13.15.15",

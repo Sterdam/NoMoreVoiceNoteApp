@@ -52,7 +52,7 @@ class WhatsAppService {
             // Vérifier l'abonnement et les limites
             const subscription = await Subscription.findOne({ userId });
             if (!subscription || !subscription.isActive()) {
-                await message.reply('❌ Votre abonnement a expiré. Veuillez le renouveler pour continuer.');
+                await message.reply('❌ Votre abonnement a expiré. Veuillez le renouveler sur https://voxkill.com/dashboard');
                 return;
             }
 
@@ -66,47 +66,69 @@ class WhatsAppService {
             
             await fs.writeFile(filepath, Buffer.from(media.data, 'base64'));
             
+            // Vérifier la taille du fichier AVANT conversion
+            const stats = await fs.stat(filepath);
+            const fileSizeMB = stats.size / (1024 * 1024);
+            
+            if (fileSizeMB > 25) {
+                await message.reply('❌ Fichier trop volumineux (max 25MB). Veuillez envoyer un message plus court.');
+                await this.cleanupTempFiles(filename);
+                return;
+            }
+            
             // Obtenir la durée de l'audio
             const duration = await this.getAudioDuration(filepath);
             const durationMinutes = duration / 60;
             
-            // Vérifier les limites
+            // Vérifier les limites strictes
             if (duration > subscription.limits.maxAudioDuration) {
-                await message.reply(`❌ Audio trop long. Limite: ${subscription.limits.maxAudioDuration / 60} minutes.`);
+                const maxMinutes = subscription.limits.maxAudioDuration / 60;
+                await message.reply(`❌ Audio trop long. Votre plan permet max ${maxMinutes} minutes. Passez au plan supérieur sur https://voxkill.com/dashboard`);
                 await this.cleanupTempFiles(filename);
                 return;
             }
             
-            if (!await usage.canTranscribe(durationMinutes)) {
-                const remaining = await usage.getRemainingMinutes();
-                await message.reply(`❌ Limite mensuelle atteinte. Minutes restantes: ${remaining.toFixed(1)}`);
+            // Vérifier le quota mensuel AVANT de traiter
+            const remainingMinutes = await usage.getRemainingMinutes();
+            if (remainingMinutes < durationMinutes) {
+                await message.reply(`❌ Quota mensuel dépassé. Il vous reste ${remainingMinutes.toFixed(1)} minutes. Rechargez sur https://voxkill.com/dashboard`);
                 await this.cleanupTempFiles(filename);
                 return;
             }
             
-            await message.reply('🎤 Message vocal reçu ! Transcription en cours...');
+            // Vérifier le quota de résumés si activé
+            if (user.settings.autoSummarize) {
+                const remainingSummaries = await usage.getRemainingSummaries();
+                if (remainingSummaries <= 0) {
+                    user.settings.autoSummarize = false; // Désactiver temporairement
+                    await user.save();
+                    await message.reply('⚠️ Quota de résumés atteint. Transcription seule effectuée.');
+                }
+            }
+            
+            await message.reply('🎤 Transcription en cours...');
             
             try {
-                // Convertir en WAV pour l'API
+                // Convertir en WAV pour l'API (format recommandé)
                 const wavPath = await this.convertToWav(filepath);
                 
-                // Ajouter à la queue de transcription
+                // Ajouter à la queue avec priorité selon le plan
                 const jobInfo = await QueueService.addTranscriptionJob({
                     userId,
                     filePath: wavPath,
                     messageId: message.id._serialized,
                     language: user.settings.transcriptionLanguage || 'fr',
-                    autoSummarize: user.settings.autoSummarize,
+                    autoSummarize: user.settings.autoSummarize && (await usage.canSummarize()),
                     plan: subscription.plan
                 }, {
-                    priority: subscription.plan === 'premium' || subscription.plan === 'enterprise'
+                    priority: subscription.plan === 'pro' || subscription.plan === 'enterprise'
                 });
                 
-                // Attendre le résultat du job
+                // Attendre le résultat
                 const result = await this.waitForJobResult(jobInfo.id, message);
                 
                 if (result.state === 'completed') {
-                    // Créer la transcription dans la DB
+                    // Sauvegarder la transcription
                     const transcript = new Transcript({
                         userId,
                         messageId: message.id._serialized,
@@ -118,36 +140,46 @@ class WhatsAppService {
                         metadata: {
                             originalFilename: filename,
                             processingTime: result.returnvalue.processingTime,
-                            jobId: jobInfo.id
+                            jobId: jobInfo.id,
+                            cost: durationMinutes * 0.006 // Tracking du coût
                         }
                     });
                     
                     await transcript.save();
                     
                     // Mettre à jour l'utilisation
-                    const costEstimate = await OpenAIService.estimateCost(duration, user.settings.autoSummarize);
+                    const costEstimate = await OpenAIService.estimateCost(duration, result.returnvalue.summary);
                     await usage.addTranscription(durationMinutes, costEstimate.whisperCost, transcript._id);
-                    
-                    // Envoyer la transcription
-                    let replyText = `📝 **Transcription:**\n\n${result.returnvalue.text}`;
                     
                     if (result.returnvalue.summary) {
                         await usage.addSummary(costEstimate.summaryCost, transcript._id);
+                    }
+                    
+                    // Envoyer la transcription avec info d'usage
+                    let replyText = `📝 **Transcription (${durationMinutes.toFixed(1)} min):**\n\n${result.returnvalue.text}`;
+                    
+                    if (result.returnvalue.summary) {
                         replyText += `\n\n📌 **Résumé:**\n${result.returnvalue.summary}`;
                     }
                     
-                    // Ajouter les infos d'utilisation
-                    const remainingMinutes = await usage.getRemainingMinutes();
-                    replyText += `\n\n⏱️ Minutes restantes ce mois: ${remainingMinutes.toFixed(1)}`;
+                    const newRemainingMinutes = await usage.getRemainingMinutes();
+                    const percentUsed = ((subscription.limits.minutesPerMonth - newRemainingMinutes) / subscription.limits.minutesPerMonth * 100).toFixed(0);
+                    
+                    replyText += `\n\n⏱️ Quota: ${newRemainingMinutes.toFixed(0)}/${subscription.limits.minutesPerMonth} min restantes (${percentUsed}% utilisé)`;
+                    
+                    // Alerte si proche de la limite
+                    if (percentUsed > 80) {
+                        replyText += `\n⚠️ Attention: ${100 - percentUsed}% de quota restant!`;
+                    }
                     
                     await message.reply(replyText);
                 } else {
-                    throw new Error(`Job failed: ${result.failedReason}`);
+                    throw new Error(`Échec: ${result.failedReason}`);
                 }
                 
             } catch (transcriptionError) {
                 LogService.error('Transcription error:', transcriptionError);
-                await message.reply('❌ Désolé, je n\'ai pas pu transcrire ce message vocal.');
+                await message.reply('❌ Erreur lors de la transcription. Votre quota n\'a pas été débité. Support: support@voxkill.com');
                 throw transcriptionError;
             } finally {
                 await this.cleanupTempFiles(filename);
@@ -159,7 +191,7 @@ class WhatsAppService {
                 error: error.message,
                 stack: error.stack
             });
-            throw error;
+            // Ne pas throw pour éviter de crasher le client WhatsApp
         }
     }
 

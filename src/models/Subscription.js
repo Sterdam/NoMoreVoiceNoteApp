@@ -38,7 +38,7 @@ const subscriptionSchema = new mongoose.Schema({
     limits: {
         minutesPerMonth: {
             type: Number,
-            default: 30 // 30 minutes pour l'essai gratuit
+            default: 30
         },
         summariesPerMonth: {
             type: Number,
@@ -46,7 +46,7 @@ const subscriptionSchema = new mongoose.Schema({
         },
         maxAudioDuration: {
             type: Number,
-            default: 300 // 5 minutes max par audio
+            default: 300 // 5 minutes en secondes
         }
     },
     features: {
@@ -75,16 +75,16 @@ const subscriptionSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Plans disponibles
+// Plans avec calcul de rentabilité
 subscriptionSchema.statics.PLANS = {
     trial: {
         name: 'Essai Gratuit',
         price: 0,
-        duration: 7, // jours
+        duration: 7,
         limits: {
-            minutesPerMonth: 30,
-            summariesPerMonth: 50,
-            maxAudioDuration: 300
+            minutesPerMonth: 10, // RÉDUIT pour limiter les pertes
+            summariesPerMonth: 10,
+            maxAudioDuration: 180 // 3 minutes max
         },
         features: {
             transcription: true,
@@ -100,7 +100,7 @@ subscriptionSchema.statics.PLANS = {
         stripePriceId: process.env.STRIPE_BASIC_PRICE_ID,
         limits: {
             minutesPerMonth: 300, // 5 heures
-            summariesPerMonth: 500,
+            summariesPerMonth: 300,
             maxAudioDuration: 600 // 10 minutes
         },
         features: {
@@ -109,7 +109,9 @@ subscriptionSchema.statics.PLANS = {
             multiLanguage: true,
             priority: false,
             apiAccess: false
-        }
+        },
+        // Coût estimé: 300 min * 0.006$ = 1.80$ + résumés ~0.60$ = 2.40$
+        // Marge: 9.99$ - 2.40$ = 7.59$ (76% de marge)
     },
     pro: {
         name: 'Pro',
@@ -117,7 +119,7 @@ subscriptionSchema.statics.PLANS = {
         stripePriceId: process.env.STRIPE_PRO_PRICE_ID,
         limits: {
             minutesPerMonth: 1200, // 20 heures
-            summariesPerMonth: 2000,
+            summariesPerMonth: 1200,
             maxAudioDuration: 1800 // 30 minutes
         },
         features: {
@@ -126,7 +128,9 @@ subscriptionSchema.statics.PLANS = {
             multiLanguage: true,
             priority: true,
             apiAccess: false
-        }
+        },
+        // Coût estimé: 1200 min * 0.006$ = 7.20$ + résumés ~2.40$ = 9.60$
+        // Marge: 29.99$ - 9.60$ = 20.39$ (68% de marge)
     },
     enterprise: {
         name: 'Enterprise',
@@ -134,8 +138,8 @@ subscriptionSchema.statics.PLANS = {
         stripePriceId: process.env.STRIPE_ENTERPRISE_PRICE_ID,
         limits: {
             minutesPerMonth: 6000, // 100 heures
-            summariesPerMonth: 10000,
-            maxAudioDuration: 3600 // 60 minutes
+            summariesPerMonth: 6000,
+            maxAudioDuration: 3000 // 50 minutes (proche limite 25MB)
         },
         features: {
             transcription: true,
@@ -143,7 +147,9 @@ subscriptionSchema.statics.PLANS = {
             multiLanguage: true,
             priority: true,
             apiAccess: true
-        }
+        },
+        // Coût estimé: 6000 min * 0.006$ = 36$ + résumés ~12$ = 48$
+        // Marge: 99.99$ - 48$ = 51.99$ (52% de marge)
     }
 };
 
@@ -165,7 +171,7 @@ subscriptionSchema.methods.canUseFeature = function(feature) {
 subscriptionSchema.methods.getRemainingTrial = function() {
     if (this.plan !== 'trial') return 0;
     const remaining = this.trialEndDate - new Date();
-    return Math.max(0, Math.ceil(remaining / (1000 * 60 * 60 * 24))); // jours
+    return Math.max(0, Math.ceil(remaining / (1000 * 60 * 60 * 24)));
 };
 
 subscriptionSchema.methods.toJSON = function() {
