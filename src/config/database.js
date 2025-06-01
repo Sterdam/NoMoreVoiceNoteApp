@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const LogService = require('../services/LogService');
 
-const connectDB = async () => {
+const connectDB = async (additionalOptions = {}) => {
     try {
         const options = {
             useNewUrlParser: true,
@@ -11,7 +11,8 @@ const connectDB = async () => {
             socketTimeoutMS: 45000,
             directConnection: true,
             retryWrites: true,
-            retryReads: true
+            retryReads: true,
+            ...additionalOptions // Fusionner avec les options du performanceOptimizer
         };
 
         const mongoURI = process.env.MONGODB_URI;

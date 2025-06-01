@@ -4,13 +4,8 @@ FROM node:18-bullseye
 # Installation des dépendances minimales pour Puppeteer
 RUN apt-get update && apt-get install -y \
     chromium \
-    python3 \
-    python3-pip \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
-
-# Installation de Whisper
-RUN pip3 install --no-cache-dir openai-whisper
 
 WORKDIR /app
 
@@ -27,7 +22,6 @@ COPY . .
 RUN mkdir -p \
     data/sessions \
     data/temp \
-    data/models \
     logs \
     && chmod -R 777 data \
     && chmod -R 777 logs

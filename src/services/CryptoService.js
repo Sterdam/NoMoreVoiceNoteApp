@@ -9,6 +9,11 @@ class CryptoService {
         this.algorithm = 'aes-256-gcm';
         this.keyLength = 32;
         this.ivLength = 16;
+        this.masterKey = process.env.CRYPTO_KEY || this.generateKey();
+        
+        if (!process.env.CRYPTO_KEY) {
+            LogService.warn('CRYPTO_KEY not set in environment, using generated key (not recommended for production)');
+        }
     }
 
     generateKey() {

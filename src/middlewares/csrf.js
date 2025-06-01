@@ -1,0 +1,79 @@
+const { doubleCsrf } = require('csrf-csrf');
+const LogService = require('../services/LogService');
+
+// Configuration CSRF avec double submit pattern
+const { generateToken, validateRequest, doubleCsrfProtection } = doubleCsrf({
+    getSecret: () => process.env.CSRF_SECRET || process.env.COOKIE_SECRET || 'csrf-secret-key',
+    cookieName: 'csrf-token',
+    cookieOptions: {
+        httpOnly: true,
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 12 * 60 * 60 * 1000 // 12 heures
+    },
+    getTokenFromRequest: (req) => {
+        // Token peut être dans l'en-tête ou le body
+        return req.headers['x-csrf-token'] || req.body._csrf;
+    }
+});
+
+// Middleware pour générer le token CSRF
+const generateCSRFToken = (req, res, next) => {
+    try {
+        const token = generateToken(req, res);
+        res.locals.csrfToken = token;
+        next();
+    } catch (error) {
+        LogService.error('Error generating CSRF token:', error);
+        next();
+    }
+};
+
+// Middleware pour valider le token CSRF
+const validateCSRF = (req, res, next) => {
+    // Ignorer la validation pour certaines routes
+    const ignorePaths = [
+        '/api/payment/webhook', // Webhook Stripe
+        '/api/auth/login',
+        '/api/auth/register',
+        '/health'
+    ];
+
+    if (ignorePaths.some(path => req.path.startsWith(path))) {
+        return next();
+    }
+
+    // Ignorer pour les méthodes GET, HEAD, OPTIONS
+    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+        return next();
+    }
+
+    try {
+        const valid = validateRequest(req);
+        if (!valid) {
+            LogService.warn('CSRF token validation failed:', {
+                path: req.path,
+                method: req.method,
+                ip: req.ip
+            });
+            return res.status(403).json({ error: 'Invalid CSRF token' });
+        }
+        next();
+    } catch (error) {
+        LogService.error('CSRF validation error:', error);
+        res.status(403).json({ error: 'CSRF validation failed' });
+    }
+};
+
+// Route pour obtenir un nouveau token CSRF
+const getCSRFToken = (req, res) => {
+    const token = generateToken(req, res);
+    res.json({ csrfToken: token });
+};
+
+module.exports = {
+    doubleCsrfProtection,
+    generateCSRFToken,
+    validateCSRF,
+    getCSRFToken
+};

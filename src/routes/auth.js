@@ -4,38 +4,16 @@ const router = express.Router();
 const User = require('../models/User');
 const { auth } = require('../middlewares/auth');
 const LogService = require('../services/LogService');
+const { validate, registrationValidation, loginValidation } = require('../middlewares/validation');
 
 // Inscription
-router.post('/register', async (req, res) => {
+router.post('/register', validate(registrationValidation), async (req, res) => {
     try {
         const { email, password, whatsappNumber } = req.body;
 
         LogService.info('Tentative d\'inscription:', { email, whatsappNumber });
 
-        // Validation basique
-        if (!email || !password || !whatsappNumber) {
-            LogService.warn('Inscription échouée: champs manquants', { email, whatsappNumber });
-            return res.status(400).json({
-                error: 'Tous les champs sont requis'
-            });
-        }
-
-        // Vérifier si l'utilisateur existe déjà
-        const existingUser = await User.findOne({
-            $or: [
-                { email: email.toLowerCase() },
-                { whatsappNumber }
-            ]
-        });
-
-        if (existingUser) {
-            LogService.warn('Inscription échouée: utilisateur existant', { email, whatsappNumber });
-            return res.status(400).json({
-                error: existingUser.email === email.toLowerCase() ? 
-                    'Cet email est déjà utilisé' : 
-                    'Ce numéro WhatsApp est déjà utilisé'
-            });
-        }
+        // Les validations sont déjà effectuées par le middleware
 
         // Création de l'utilisateur
         const user = new User({
@@ -80,19 +58,13 @@ router.post('/register', async (req, res) => {
 });
 
 // Connexion
-router.post('/login', async (req, res) => {
+router.post('/login', validate(loginValidation), async (req, res) => {
     try {
         const { email, password } = req.body;
 
         LogService.info('Tentative de connexion:', { email });
 
-        // Validation basique
-        if (!email || !password) {
-            LogService.warn('Connexion échouée: champs manquants', { email });
-            return res.status(400).json({
-                error: 'Email et mot de passe requis'
-            });
-        }
+        // Les validations sont déjà effectuées par le middleware
 
         const user = await User.findByCredentials(email.toLowerCase(), password);
         const token = user.generateAuthToken();

@@ -29,13 +29,23 @@ const userSchema = new mongoose.Schema({
         default: 'user'
     },
     settings: {
-        defaultLanguage: {
+        transcriptionLanguage: {
             type: String,
+            enum: ['fr', 'en', 'es', 'de', 'it', 'pt', 'nl', 'pl', 'ru', 'ja', 'ko', 'zh'],
             default: 'fr'
         },
         autoTranscribe: {
             type: Boolean,
             default: true
+        },
+        autoSummarize: {
+            type: Boolean,
+            default: true
+        },
+        summaryLanguage: {
+            type: String,
+            enum: ['same', 'fr', 'en', 'es', 'de', 'it', 'pt'],
+            default: 'same' // 'same' signifie utiliser la même langue que la transcription
         },
         notificationPreferences: {
             email: {
@@ -45,23 +55,59 @@ const userSchema = new mongoose.Schema({
             whatsapp: {
                 type: Boolean,
                 default: true
+            },
+            usageAlerts: {
+                type: Boolean,
+                default: true
             }
+        },
+        timezone: {
+            type: String,
+            default: 'Europe/Paris'
         }
     },
     encryptionKey: String,
     lastLogin: Date,
+    apiKey: {
+        type: String,
+        unique: true,
+        sparse: true
+    },
+    onboardingCompleted: {
+        type: Boolean,
+        default: false
+    },
+    referralCode: {
+        type: String,
+        unique: true,
+        sparse: true
+    },
+    referredBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }
 }, {
     timestamps: true
 });
 
-// Retirer les index du schéma car ils sont gérés par dbInit.js
+// Générer un code de parrainage unique
 userSchema.pre('save', async function(next) {
     if (this.isModified('password')) {
         this.password = await bcrypt.hash(this.password, 12);
     }
+    
     if (!this.encryptionKey) {
         this.encryptionKey = crypto.randomBytes(32).toString('hex');
     }
+    
+    if (!this.referralCode) {
+        this.referralCode = this.generateReferralCode();
+    }
+    
+    if (!this.apiKey && this.role === 'user') {
+        this.apiKey = this.generateApiKey();
+    }
+    
     next();
 });
 
@@ -80,6 +126,38 @@ userSchema.methods = {
 
     async comparePassword(password) {
         return bcrypt.compare(password, this.password);
+    },
+    
+    generateReferralCode() {
+        return crypto.randomBytes(4).toString('hex').toUpperCase();
+    },
+    
+    generateApiKey() {
+        return `sk_${crypto.randomBytes(24).toString('hex')}`;
+    },
+    
+    async regenerateApiKey() {
+        this.apiKey = this.generateApiKey();
+        await this.save();
+        return this.apiKey;
+    },
+    
+    getLanguageName(code) {
+        const languages = {
+            'fr': 'Français',
+            'en': 'English',
+            'es': 'Español',
+            'de': 'Deutsch',
+            'it': 'Italiano',
+            'pt': 'Português',
+            'nl': 'Nederlands',
+            'pl': 'Polski',
+            'ru': 'Русский',
+            'ja': '日本語',
+            'ko': '한국어',
+            'zh': '中文'
+        };
+        return languages[code] || code;
     }
 };
 
@@ -94,6 +172,14 @@ userSchema.statics = {
             throw new Error('Invalid credentials');
         }
         return user;
+    },
+    
+    async findByApiKey(apiKey) {
+        return this.findOne({ apiKey, isActive: true });
+    },
+    
+    async findByReferralCode(referralCode) {
+        return this.findOne({ referralCode: referralCode.toUpperCase() });
     }
 };
 
