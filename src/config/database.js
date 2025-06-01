@@ -17,7 +17,7 @@ const connectDB = async (additionalOptions = {}) => {
 
         const mongoURI = process.env.MONGODB_URI;
         LogService.info('Tentative de connexion à MongoDB...', {
-            uri: mongoURI.replace(/\/\/[^:]+:[^@]+@/, '//***:***@')
+            uri: mongoURI.replace(/\/\/[^:]+:[^@]+@/, '//***:***@' )
         });
 
         mongoose.connection.on('error', (err) => {
