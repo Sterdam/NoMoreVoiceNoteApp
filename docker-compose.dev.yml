@@ -1,75 +1,76 @@
 version: '3.8'
 
 services:
+  # Frontend avec hot reload
   frontend:
-    build: 
-      context: .
-      dockerfile: frontend.Dockerfile
-    container_name: whatsapp-frontend
+    build:
+      context: ./frontend
+      target: deps
+    container_name: voxkill-frontend-dev
+    command: npm run dev
     volumes:
       - ./frontend:/app
       - /app/node_modules
     ports:
       - "5173:5173"
     environment:
-      - VITE_API_URL=http://localhost:3000
-    depends_on:
-      - backend
-
-  backend:
-    build: 
-      context: .
-      dockerfile: Dockerfile
-    container_name: whatsapp-backend
-    restart: unless-stopped
-    environment:
       - NODE_ENV=development
-      - MONGODB_URI=mongodb://admin:password123@mongodb:27017/whatsapp-transcriber?authSource=admin&directConnection=true
-      - REDIS_URL=redis://:redis123@redis:6379
-      - CORS_ORIGIN=http://localhost:5173
-    ports:
-      - "3000:3000"
-    depends_on:
-      mongodb:
-        condition: service_healthy
-      redis:
-        condition: service_started
+    networks:
+      - voxkill-dev
+
+  # Backend avec nodemon
+  backend:
+    build:
+      context: .
+      target: dev
+    container_name: voxkill-backend-dev
     volumes:
       - ./src:/app/src
+      - ./data:/app/data
       - ./logs:/app/logs
-      - ./models:/app/models
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - MONGODB_URI=mongodb://admin:devpassword@mongodb:27017/voxkill-dev?authSource=admin
+      - REDIS_URL=redis://:devpassword@redis:6379
+    networks:
+      - voxkill-dev
+    depends_on:
+      - mongodb
+      - redis
 
+  # MongoDB pour dev
   mongodb:
-    image: mongo:latest
-    container_name: mongodb
-    restart: unless-stopped
+    image: mongo:7-jammy
+    container_name: voxkill-mongodb-dev
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: password123
-      MONGO_INITDB_DATABASE: admin
-    volumes:
-      - mongodb_data:/data/db
-      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+      MONGO_INITDB_ROOT_PASSWORD: devpassword
     ports:
       - "27017:27017"
-    healthcheck:
-      test: mongosh --eval 'db.runCommand("ping").ok' --quiet
-      interval: 10s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
-    command: ["mongod", "--auth"]
+    volumes:
+      - mongodb_dev_data:/data/db
+    networks:
+      - voxkill-dev
 
+  # Redis pour dev
   redis:
-    image: redis:alpine
-    container_name: redis
-    restart: unless-stopped
+    image: redis:7-alpine
+    container_name: voxkill-redis-dev
+    command: redis-server --requirepass devpassword
     ports:
       - "6379:6379"
-    command: redis-server --requirepass redis123
     volumes:
-      - redis_data:/data
+      - redis_dev_data:/data
+    networks:
+      - voxkill-dev
 
 volumes:
-  mongodb_data:
-  redis_data:
+  mongodb_dev_data:
+  redis_dev_data:
+
+networks:
+  voxkill-dev:
+    driver: bridge

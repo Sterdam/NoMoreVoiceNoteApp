@@ -1,4 +1,4 @@
-# Build multi-stage optimisé
+# Build multi-stage optimisé pour le backend
 FROM node:18-alpine AS base
 
 # Installer uniquement les dépendances système nécessaires
@@ -10,9 +10,10 @@ RUN apk add --no-cache \
     harfbuzz \
     ca-certificates \
     ttf-freefont \
-    ffmpeg
+    ffmpeg \
+    && rm -rf /var/cache/apk/*
 
-# Dire à Puppeteer d'utiliser le Chromium installé
+# Configuration Puppeteer pour WhatsApp Web
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
@@ -20,29 +21,31 @@ WORKDIR /app
 
 # Stage pour les dépendances
 FROM base AS deps
-
-# Copier uniquement les fichiers de dépendances
 COPY package*.json ./
-
-# Utiliser npm ci pour une installation plus rapide et déterministe
-# Nettoyer le cache npm après installation
 RUN npm ci --only=production && \
     npm cache clean --force
 
-# Stage pour le build de production
-FROM base AS runner
+# Stage pour le développement
+FROM base AS dev
+COPY package*.json ./
+RUN npm install && \
+    npm cache clean --force
+COPY . .
+CMD ["npm", "run", "dev"]
 
+# Stage final pour la production
+FROM base AS production
 WORKDIR /app
 
-# Copier les node_modules depuis le stage deps
+# Copier les dépendances depuis le stage deps
 COPY --from=deps /app/node_modules ./node_modules
 
 # Copier le code source
 COPY . .
 
-# Créer les dossiers nécessaires
+# Créer les dossiers nécessaires avec les bonnes permissions
 RUN mkdir -p data/sessions data/temp logs && \
-    chmod -R 777 data logs
+    chmod -R 755 data logs
 
 # Créer un utilisateur non-root
 RUN addgroup -g 1001 -S nodejs && \
