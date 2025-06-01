@@ -24,60 +24,104 @@ async function initializeDatabase() {
       }
     }
 
-    // 3. Gérer les index de manière séquentielle
+    // 3. Gérer les index de manière plus sélective
     for (const collection of ['users', 'transcripts']) {
       try {
-        await db.collection(collection).dropIndexes();
-        LogService.info(`Index supprimés pour ${collection}`);
+        // Obtenir les index existants
+        const existingIndexes = await db.collection(collection).listIndexes().toArray();
+        
+        // Supprimer uniquement les index non-_id qui pourraient causer des conflits
+        for (const index of existingIndexes) {
+          if (index.name !== '_id_') {
+            try {
+              await db.collection(collection).dropIndex(index.name);
+              LogService.info(`Index ${index.name} supprimé pour ${collection}`);
+            } catch (dropError) {
+              LogService.warn(`Impossible de supprimer l'index ${index.name}:`, dropError.message);
+            }
+          }
+        }
       } catch (error) {
         if (!error.message.includes('ns not found')) {
-          LogService.warn(`Avertissement lors de la suppression des index de ${collection}:`, error);
+          LogService.warn(`Avertissement lors de la gestion des index de ${collection}:`, error);
         }
       }
     }
 
-    // 4. Créer les nouveaux index de manière séquentielle
+    // 4. Créer les nouveaux index de manière séquentielle avec gestion d'erreur
     LogService.info('Création des index...');
     
     // Index pour Users
-    await db.collection('users').createIndex(
-      { email: 1 },
-      { 
-        unique: true,
-        background: true,
-        name: 'email_unique'
+    try {
+      await db.collection('users').createIndex(
+        { email: 1 },
+        { 
+          unique: true,
+          background: true,
+          name: 'email_unique'
+        }
+      );
+      LogService.info('Index email créé pour users');
+    } catch (error) {
+      if (error.code === 85) { // IndexOptionsConflict
+        LogService.warn('Index email existe déjà avec des options différentes');
+      } else if (error.code !== 11000) { // Pas une erreur de duplication
+        throw error;
       }
-    );
-    LogService.info('Index email créé pour users');
+    }
     
-    await db.collection('users').createIndex(
-      { whatsappNumber: 1 },
-      { 
-        unique: true,
-        background: true,
-        name: 'whatsapp_unique'
+    try {
+      await db.collection('users').createIndex(
+        { whatsappNumber: 1 },
+        { 
+          unique: true,
+          background: true,
+          name: 'whatsapp_unique'
+        }
+      );
+      LogService.info('Index whatsappNumber créé pour users');
+    } catch (error) {
+      if (error.code === 85) { // IndexOptionsConflict
+        LogService.warn('Index whatsappNumber existe déjà avec des options différentes');
+      } else if (error.code !== 11000) { // Pas une erreur de duplication
+        throw error;
       }
-    );
-    LogService.info('Index whatsappNumber créé pour users');
+    }
 
     // Index pour Transcripts
-    await db.collection('transcripts').createIndex(
-      { userId: 1, createdAt: -1 },
-      { 
-        background: true,
-        name: 'userId_createdAt'
+    try {
+      await db.collection('transcripts').createIndex(
+        { userId: 1, createdAt: -1 },
+        { 
+          background: true,
+          name: 'userId_createdAt'
+        }
+      );
+      LogService.info('Index userId_createdAt créé pour transcripts');
+    } catch (error) {
+      if (error.code === 85) {
+        LogService.warn('Index userId_createdAt existe déjà avec des options différentes');
+      } else if (error.code !== 11000) {
+        throw error;
       }
-    );
-    LogService.info('Index userId_createdAt créé pour transcripts');
+    }
 
-    await db.collection('transcripts').createIndex(
-      { messageId: 1 },
-      { 
-        background: true,
-        name: 'messageId'
+    try {
+      await db.collection('transcripts').createIndex(
+        { messageId: 1 },
+        { 
+          background: true,
+          name: 'messageId'
+        }
+      );
+      LogService.info('Index messageId créé pour transcripts');
+    } catch (error) {
+      if (error.code === 85) {
+        LogService.warn('Index messageId existe déjà avec des options différentes');
+      } else if (error.code !== 11000) {
+        throw error;
       }
-    );
-    LogService.info('Index messageId créé pour transcripts');
+    }
 
     // 5. Vérification finale des index
     const userIndexes = await db.collection('users').listIndexes().toArray();

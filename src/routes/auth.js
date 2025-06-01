@@ -1,10 +1,11 @@
 // src/routes/auth.js
 const express = require('express');
 const router = express.Router();
-const User = require('../models/UserSimple');
+const User = require('../models/User'); // Utiliser le modèle complet au lieu de UserSimple
 const { auth } = require('../middlewares/auth');
 const LogService = require('../services/LogService');
 const { validate, registrationValidation, loginValidation } = require('../middlewares/validation');
+const Subscription = require('../models/Subscription');
 
 // Inscription
 router.post('/register', validate(registrationValidation), async (req, res) => {
@@ -20,12 +21,24 @@ router.post('/register', validate(registrationValidation), async (req, res) => {
         const user = new User({
             email: email.toLowerCase(),
             password,
-            whatsappNumber
+            whatsappNumber,
+            referralCode: User.prototype.generateReferralCode(),
+            encryptionKey: require('crypto').randomBytes(32).toString('hex')
         });
 
         LogService.info('Instance utilisateur créée, sauvegarde...');
         await user.save();
         LogService.info('Utilisateur sauvé avec succès');
+
+        // Créer automatiquement un abonnement trial
+        const subscription = new Subscription({
+            userId: user._id,
+            plan: 'trial',
+            status: 'active'
+        });
+        await subscription.save();
+        LogService.info('Abonnement trial créé');
+
         const token = user.generateAuthToken();
 
         // Configuration des cookies
@@ -43,7 +56,8 @@ router.post('/register', validate(registrationValidation), async (req, res) => {
             user: {
                 id: user._id,
                 email: user.email,
-                whatsappNumber: user.whatsappNumber
+                whatsappNumber: user.whatsappNumber,
+                settings: user.settings
             },
             token
         });
@@ -53,6 +67,14 @@ router.post('/register', validate(registrationValidation), async (req, res) => {
             stack: error.stack,
             body: req.body
         });
+        
+        // Gestion des erreurs spécifiques
+        if (error.code === 11000) {
+            const field = Object.keys(error.keyPattern)[0];
+            return res.status(400).json({
+                error: `Cet ${field === 'email' ? 'email' : 'numéro WhatsApp'} est déjà utilisé`
+            });
+        }
         
         res.status(500).json({
             error: 'Erreur lors de l\'inscription. Veuillez réessayer.'
@@ -90,7 +112,8 @@ router.post('/login', validate(loginValidation), async (req, res) => {
             user: {
                 id: user._id,
                 email: user.email,
-                whatsappNumber: user.whatsappNumber
+                whatsappNumber: user.whatsappNumber,
+                settings: user.settings
             },
             token
         });
