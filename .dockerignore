@@ -1,0 +1,76 @@
+# Node modules
+node_modules/
+*/node_modules/
+frontend/node_modules/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Sessions WhatsApp - IMPORTANT
+data/sessions/
+.wwebjs_auth/
+.wwebjs_cache/
+
+# Temporary files
+data/temp/
+*.tmp
+.tmp/
+
+# Build outputs
+dist/
+build/
+frontend/dist/
+frontend/build/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+.nyc_output/
+
+# MongoDB dumps
+dump/
+*.dump
+
+# Certificates
+certbot/
+*.pem
+*.key
+*.crt
+
+# Git
+.git/
+.gitignore
+
+# Docker
+docker-compose.override.yml
+Dockerfile.dev
+
+# Other
+.cache/
+.npm/
+.eslintcache

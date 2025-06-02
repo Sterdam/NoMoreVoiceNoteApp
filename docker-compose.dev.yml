@@ -1,77 +1,112 @@
 version: '3.8'
 
 services:
-  # Frontend avec hot reload
+  # MongoDB
+  mongodb:
+    image: mongo:7
+    container_name: voxkill-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-password123}
+      MONGO_INITDB_DATABASE: voxkill
+    volumes:
+      - mongo_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - voxkill-network
+    healthcheck:
+      test: mongosh --eval 'db.runCommand("ping").ok' --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: voxkill-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redis123}
+    volumes:
+      - redis_data:/data
+    networks:
+      - voxkill-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--pass", "${REDIS_PASSWORD:-redis123}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend Node.js
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=production
+    container_name: voxkill-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://admin:${MONGO_ROOT_PASSWORD:-password123}@mongodb:27017/voxkill?authSource=admin
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis123}@redis:6379
+    volumes:
+      # Utiliser des volumes nommés pour éviter les problèmes de permissions
+      - whatsapp_sessions:/app/.wwebjs_auth
+      - app_data:/app/data
+      - app_logs:/app/logs
+      - app_models:/app/models
+    ports:
+      - "${PORT:-3000}:3000"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - voxkill-network
+    # Ajout de capacités pour Puppeteer
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - seccomp:unconfined
+
+  # Frontend React
   frontend:
     build:
       context: .
       dockerfile: frontend.Dockerfile
-    container_name: voxkill-frontend-dev
+    container_name: voxkill-frontend
+    restart: unless-stopped
+    environment:
+      - VITE_API_URL=http://localhost:${PORT:-3000}
+      - NODE_ENV=production
     volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      - ./frontend/dist:/app/dist
     ports:
       - "5173:5173"
-    environment:
-      - NODE_ENV=development
-    networks:
-      - voxkill-dev
-
-  # Backend avec nodemon
-  backend:
-    build:
-      context: .
-      target: dev
-    container_name: voxkill-backend-dev
-    volumes:
-      - ./src:/app/src
-      - ./data:/app/data
-      - ./logs:/app/logs
-      - /app/node_modules
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=development
-      - MONGODB_URI=mongodb://admin:devpassword@mongodb:27017/voxkill-dev?authSource=admin
-      - REDIS_URL=redis://:devpassword@redis:6379
-    networks:
-      - voxkill-dev
     depends_on:
-      - mongodb
-      - redis
-
-  # MongoDB pour dev
-  mongodb:
-    image: mongo:7-jammy
-    container_name: voxkill-mongodb-dev
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: devpassword
-      MONGO_INITDB_DATABASE: voxkill-dev
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_dev_data:/data/db
-      - ./mongo-init-dev.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+      - backend
     networks:
-      - voxkill-dev
-
-  # Redis pour dev
-  redis:
-    image: redis:7-alpine
-    container_name: voxkill-redis-dev
-    command: redis-server --requirepass devpassword
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_dev_data:/data
-    networks:
-      - voxkill-dev
+      - voxkill-network
 
 volumes:
-  mongodb_dev_data:
-  redis_dev_data:
+  mongo_data:
+    driver: local
+  redis_data:
+    driver: local
+  whatsapp_sessions:
+    driver: local
+  app_data:
+    driver: local
+  app_logs:
+    driver: local
+  app_models:
+    driver: local
 
 networks:
-  voxkill-dev:
+  voxkill-network:
     driver: bridge

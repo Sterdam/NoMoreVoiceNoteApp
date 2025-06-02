@@ -19,29 +19,217 @@ class WhatsAppService {
     constructor() {
         this.clients = new Map();
         this.pendingQRs = new Map();
-        this.sessionPath = path.join(process.cwd(), 'data', 'sessions');
+        this.sessionPath = path.join(process.cwd(), '.wwebjs_auth');
         this.tempPath = path.join(process.cwd(), 'data', 'temp');
         this.redis = null;
         this.reconnectIntervals = new Map();
         this.maxReconnectAttempts = 5;
         this.reconnectDelay = 30000;
-        this.selfChatIds = new Map(); // Store self-chat IDs per user
+        this.selfChatIds = new Map();
         this.initialize();
     }
 
     async initialize() {
         try {
+            // Créer les dossiers nécessaires
             await fs.mkdir(this.sessionPath, { recursive: true });
             await fs.mkdir(this.tempPath, { recursive: true });
+            
+            // S'assurer que le dossier .wwebjs_auth existe avec les bonnes permissions
+            if (process.platform !== 'win32') {
+                try {
+                    await execAsync(`chmod -R 755 ${this.sessionPath}`);
+                } catch (e) {
+                    LogService.warn('Could not set permissions on session path');
+                }
+            }
             
             this.redis = getRedisClient();
             await this.restoreSessionsFromRedis();
             
             setInterval(() => this.performMemoryCleanup(), 300000);
             
-            LogService.info('WhatsApp service initialized with Redis support');
+            LogService.info('WhatsApp service initialized');
         } catch (error) {
             LogService.error('WhatsApp initialization error:', error);
+        }
+    }
+
+    async createUserSession(userId) {
+        try {
+            if (this.clients.has(userId)) {
+                const existingClient = this.clients.get(userId);
+                const state = await existingClient.getState();
+                if (state === 'CONNECTED') {
+                    LogService.info('Client already connected', { userId });
+                    return true;
+                }
+                await this.logout(userId);
+            }
+
+            LogService.info('Creating WhatsApp session for user:', { userId });
+
+            const client = new Client({
+                authStrategy: new LocalAuth({
+                    clientId: userId.toString(),
+                    dataPath: this.sessionPath
+                }),
+                puppeteer: {
+                    headless: true,
+                    args: [
+                        '--no-sandbox',
+                        '--disable-setuid-sandbox',
+                        '--disable-dev-shm-usage',
+                        '--disable-accelerated-2d-canvas',
+                        '--no-first-run',
+                        '--no-zygote',
+                        '--single-process', // Important pour certains environnements
+                        '--disable-gpu'
+                    ],
+                    // Timeout plus long pour la connexion
+                    timeout: 120000
+                },
+                // Options WhatsApp Web
+                webVersionCache: {
+                    type: 'remote',
+                    remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
+                }
+            });
+
+            // Loading screen event
+            client.on('loading_screen', (percent, message) => {
+                LogService.info('WhatsApp loading:', { userId, percent, message });
+            });
+
+            // QR Code event
+            client.on('qr', async (qr) => {
+                try {
+                    LogService.info('QR Code received for user:', { userId });
+                    const qrImage = await qrcode.toDataURL(qr, {
+                        width: 300,
+                        margin: 2,
+                        color: {
+                            dark: '#000000',
+                            light: '#FFFFFF'
+                        }
+                    });
+                    this.pendingQRs.set(userId, qrImage.split(',')[1]);
+                } catch (error) {
+                    LogService.error('Error generating QR code:', { userId, error });
+                }
+            });
+
+            // Authenticated event
+            client.on('authenticated', () => {
+                LogService.info('WhatsApp authenticated for user:', { userId });
+                this.pendingQRs.delete(userId);
+            });
+
+            // Auth failure event
+            client.on('auth_failure', async (msg) => {
+                LogService.error('WhatsApp authentication failed:', { userId, msg });
+                this.pendingQRs.delete(userId);
+                await this.removeSessionFromRedis(userId);
+                
+                // Nettoyer la session locale
+                const sessionDir = path.join(this.sessionPath, `session-${userId}`);
+                try {
+                    await fs.rm(sessionDir, { recursive: true, force: true });
+                } catch (err) {
+                    LogService.warn('Error cleaning session directory:', { userId, error: err });
+                }
+                
+                this.logout(userId);
+            });
+
+            // Ready event
+            client.on('ready', async () => {
+                LogService.info('WhatsApp client ready for user:', { userId });
+                this.pendingQRs.delete(userId);
+                
+                // Obtenir les informations du client
+                const info = client.info;
+                LogService.info('Client info:', { 
+                    userId, 
+                    pushname: info.pushname,
+                    wid: info.wid,
+                    platform: info.platform 
+                });
+                
+                // Sauvegarder les infos du client
+                const selfChatId = info.wid.user + '@c.us';
+                this.selfChatIds.set(userId, selfChatId);
+                
+                await this.saveSessionToRedis(userId, 'connected');
+                this.stopReconnectAttempts(userId);
+                
+                // Envoyer un message de bienvenue
+                try {
+                    const user = await this.getUserById(userId);
+                    if (user.settings.separateConversation && client.info) {
+                        await client.sendMessage(selfChatId, 
+                            `🎉 *VoxKill connecté avec succès!*\n\n` +
+                            `✅ Vos transcriptions seront envoyées ici\n` +
+                            `📱 Envoyez-moi vos notes vocales depuis n'importe quelle conversation\n` +
+                            `⚡ Transcription instantanée avec IA\n\n` +
+                            `💡 _Astuce: Épinglez cette conversation pour un accès rapide_`
+                        );
+                    }
+                } catch (e) {
+                    LogService.debug('Could not send welcome message:', e);
+                }
+            });
+
+            // Change state event
+            client.on('change_state', state => {
+                LogService.info('WhatsApp state changed:', { userId, state });
+            });
+
+            // Message event
+            client.on('message', async (message) => {
+                try {
+                    // Vérifier si c'est un message vocal
+                    if (message.hasMedia && message.type === 'ptt') {
+                        LogService.info('Voice message received:', { 
+                            userId, 
+                            from: message.from,
+                            messageId: message.id._serialized 
+                        });
+                        
+                        const user = await this.getUserById(userId);
+                        const req = { 
+                            user: { 
+                                language: user?.settings?.transcriptionLanguage || 'fr' 
+                            } 
+                        };
+                        await this.handleVoiceMessage(message, userId, req);
+                    }
+                } catch (error) {
+                    LogService.error('Message handling error:', error);
+                }
+            });
+
+            // Disconnected event
+            client.on('disconnected', async (reason) => {
+                LogService.warn('WhatsApp disconnected:', { userId, reason });
+                await this.saveSessionToRedis(userId, 'disconnected');
+                this.scheduleReconnect(userId);
+            });
+
+            // Initialiser le client
+            LogService.info('Initializing WhatsApp client...', { userId });
+            await client.initialize();
+            
+            this.clients.set(userId, client);
+            return true;
+
+        } catch (error) {
+            LogService.error('Error creating WhatsApp session:', { 
+                userId, 
+                error: error.message,
+                stack: error.stack 
+            });
+            throw error;
         }
     }
 
@@ -66,6 +254,12 @@ class WhatsAppService {
             
             // Télécharger et traiter le média
             const media = await message.downloadMedia();
+            if (!media) {
+                LogService.error('Failed to download media');
+                await message.reply("❌ Impossible de télécharger le message vocal");
+                return;
+            }
+            
             const filename = `audio_${Date.now()}`;
             const filepath = path.join(this.tempPath, `${filename}.ogg`);
             
@@ -99,7 +293,7 @@ class WhatsAppService {
                 return;
             }
             
-            // Message de traitement en cours - seulement si pas de conversation séparée
+            // Message de traitement en cours
             let processingMsg = null;
             if (!user.settings.separateConversation || subscription.plan === 'trial') {
                 processingMsg = await message.reply("🎤 Transcription en cours...");
@@ -150,7 +344,7 @@ class WhatsAppService {
                         originalFilename: filename,
                         mimeType: 'audio/ogg',
                         fileSize: stats.size,
-                        processingTime: 0, // Sera calculé automatiquement
+                        processingTime: 0,
                         chatId: chat.id._serialized,
                         fromNumber: contact.number,
                         timestamp: new Date(message.timestamp * 1000),
@@ -184,9 +378,10 @@ class WhatsAppService {
                 });
                 
                 // Supprimer le message "en cours" si existe
-                if (processingMsg && processingMsg.delete) {
+                if (processingMsg) {
                     try {
-                        await processingMsg.delete(true);
+                        // Dans les nouvelles versions, delete n'a pas de paramètre
+                        await processingMsg.delete();
                     } catch (e) {
                         // Ignorer si impossible de supprimer
                     }
@@ -297,7 +492,7 @@ class WhatsAppService {
             // Obtenir ou créer l'ID de la conversation self
             let selfChatId = this.selfChatIds.get(userId);
             
-            if (!selfChatId) {
+            if (!selfChatId && client.info) {
                 // Obtenir le numéro de l'utilisateur
                 const userNumber = client.info.wid.user + '@c.us';
                 selfChatId = userNumber;
@@ -327,7 +522,7 @@ class WhatsAppService {
                     selfChatId
                 });
                 
-                // Fallback: essayer d'envoyer dans le chat original avec un tag
+                // Fallback: essayer d'envoyer dans le chat original
                 try {
                     const fallbackMessage = `[📥 Transcription privée]\n${message}`;
                     await client.sendMessage(context.originalChat.id._serialized, fallbackMessage);
@@ -345,232 +540,31 @@ class WhatsAppService {
         }
     }
 
-    async createUserSession(userId) {
-        try {
-            if (this.clients.has(userId)) {
-                const existingClient = this.clients.get(userId);
-                const state = await existingClient.getState();
-                if (state === 'CONNECTED') {
-                    LogService.info('Client already connected for user:', { userId });
-                    return true;
-                }
-                await this.logout(userId);
-            }
-    
-            const client = new Client({
-                authStrategy: new LocalAuth({ 
-                    clientId: userId.toString(),
-                    dataPath: this.sessionPath
-                }),
-                puppeteer: {
-                    headless: true,
-                    args: [
-                        '--no-sandbox',
-                        '--disable-setuid-sandbox',
-                        '--disable-dev-shm-usage',
-                        '--disable-gpu',
-                        '--disable-extensions',
-                        '--disable-accelerated-2d-canvas',
-                        '--no-first-run',
-                        '--no-zygote',
-                        '--disable-web-security',
-                        '--disable-features=IsolateOrigins,site-per-process'
-                    ],
-                    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
-                }
-            });
-    
-            // IMPORTANT: Stocker le client AVANT l'initialisation
-            this.clients.set(userId, client);
-    
-            // Event: Loading screen (nouveau dans la dernière version)
-            client.on('loading_screen', (percent, message) => {
-                LogService.info('WhatsApp loading:', { userId, percent, message });
-            });
-    
-            // Event: QR Code
-            client.on('qr', async (qr) => {
-                try {
-                    LogService.info('QR Code received for user:', { userId });
-                    const qrImage = await qrcode.toDataURL(qr, {
-                        width: 300,
-                        margin: 2,
-                        color: {
-                            dark: '#000000',
-                            light: '#FFFFFF'
-                        }
-                    });
-                    this.pendingQRs.set(userId, qrImage.split(',')[1]);
-                    
-                    // Sauvegarder dans Redis pour récupération rapide
-                    if (this.redis) {
-                        await this.redis.setEx(
-                            `whatsapp:qr:${userId}`,
-                            300, // 5 minutes
-                            qrImage.split(',')[1]
-                        );
-                    }
-                } catch (error) {
-                    LogService.error('Error generating QR code:', { userId, error });
-                }
-            });
-    
-            // Event: Authenticated
-            client.on('authenticated', async () => {
-                LogService.info('WhatsApp authenticated for user:', { userId });
-                this.pendingQRs.delete(userId);
-                await this.saveSessionToRedis(userId, 'authenticated');
-                
-                // Supprimer le QR de Redis
-                if (this.redis) {
-                    await this.redis.del(`whatsapp:qr:${userId}`);
-                }
-            });
-    
-            // Event: Ready
-            client.on('ready', async () => {
-                LogService.info('WhatsApp client ready for user:', { userId });
-                this.pendingQRs.delete(userId);
-                
-                // Sauvegarder les infos du client
-                const selfChatId = client.info.wid.user + '@c.us';
-                this.selfChatIds.set(userId, selfChatId);
-                
-                await this.saveSessionToRedis(userId, 'connected');
-                this.stopReconnectAttempts(userId);
-                
-                // Envoyer un message de bienvenue dans la conversation self
-                try {
-                    const user = await this.getUserById(userId);
-                    if (user.settings.separateConversation) {
-                        await client.sendMessage(selfChatId, 
-                            `🎉 *VoxKill connecté avec succès!*\n\n` +
-                            `✅ Vos transcriptions seront envoyées ici\n` +
-                            `📱 Envoyez-moi vos notes vocales depuis n'importe quelle conversation\n` +
-                            `⚡ Transcription instantanée avec IA\n\n` +
-                            `💡 _Astuce: Épinglez cette conversation pour un accès rapide_`
-                        );
-                    }
-                } catch (e) {
-                    LogService.debug('Could not send welcome message');
-                }
-            });
-    
-            // Event: Message
-            client.on('message', async (message) => {
-                try {
-                    if (message.hasMedia && message.type === 'ptt') {
-                        const user = await this.getUserById(userId);
-                        const req = { 
-                            user: { 
-                                language: user?.settings?.transcriptionLanguage || 'fr' 
-                            } 
-                        };
-                        await this.handleVoiceMessage(message, userId, req);
-                    }
-                } catch (error) {
-                    LogService.error('Message handling error:', error);
-                }
-            });
-    
-            // Event: Auth failure
-            client.on('auth_failure', async (msg) => {
-                LogService.warn('WhatsApp authentication failed for user:', { userId, msg });
-                this.pendingQRs.delete(userId);
-                await this.removeSessionFromRedis(userId);
-                
-                // Nettoyer et réessayer
-                setTimeout(() => {
-                    this.logout(userId);
-                }, 1000);
-            });
-            
-            // Event: Disconnected
-            client.on('disconnected', async (reason) => {
-                LogService.warn('WhatsApp disconnected:', { userId, reason });
-                await this.saveSessionToRedis(userId, 'disconnected');
-                
-                // Ne pas reconnecter automatiquement si déconnexion volontaire
-                if (reason !== 'LOGOUT') {
-                    this.scheduleReconnect(userId);
-                }
-            });
-    
-            // Event: Change state
-            client.on('change_state', state => {
-                LogService.info('WhatsApp state changed:', { userId, state });
-            });
-    
-            // Initialiser le client
-            LogService.info('Initializing WhatsApp client for user:', { userId });
-            await client.initialize();
-            
-            return true;
-    
-        } catch (error) {
-            LogService.error('Error creating WhatsApp session:', { userId, error });
-            
-            // Nettoyer en cas d'erreur
-            this.clients.delete(userId);
-            this.pendingQRs.delete(userId);
-            
-            throw error;
-        }
-    }
-    
-    // Améliorer aussi la méthode getQRCode :
     async getQRCode(userId) {
         try {
-            // Vérifier d'abord dans le cache
-            const cachedQR = this.pendingQRs.get(userId);
-            if (cachedQR) {
-                LogService.info('Returning cached QR for user:', { userId });
-                return cachedQR;
-            }
-    
-            // Vérifier dans Redis
-            if (this.redis) {
-                const redisQR = await this.redis.get(`whatsapp:qr:${userId}`);
-                if (redisQR) {
-                    LogService.info('Returning Redis QR for user:', { userId });
-                    return redisQR;
-                }
-            }
-    
-            // Si pas de client, créer un nouveau
-            if (!this.clients.has(userId)) {
-                LogService.info('Creating new WhatsApp session for user:', { userId });
+            const client = this.clients.get(userId);
+            
+            if (!client) {
                 await this.createUserSession(userId);
-                
-                // Attendre un peu que le QR soit généré
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                // Attendre un peu pour que le QR soit généré
+                await new Promise(resolve => setTimeout(resolve, 1000));
             }
             
-            // Retourner le QR s'il a été généré
-            return this.pendingQRs.get(userId) || null;
-            
+            const qr = this.pendingQRs.get(userId);
+            return qr || null;
         } catch (error) {
             LogService.error('Error getting QR code:', { userId, error });
             throw error;
         }
     }
-    
-    // Améliorer la méthode isConnected :
+
     async isConnected(userId) {
         try {
             const client = this.clients.get(userId);
-            if (!client) {
-                return false;
-            }
+            if (!client) return false;
             
-            // Vérifier l'état du client
-            try {
-                const state = await client.getState();
-                return state === 'CONNECTED';
-            } catch (error) {
-                // Si erreur, le client n'est probablement pas connecté
-                return false;
-            }
+            const state = await client.getState();
+            return state === 'CONNECTED';
         } catch (error) {
             LogService.error('Error checking connection:', { userId, error });
             return false;
@@ -581,6 +575,11 @@ class WhatsAppService {
         try {
             const client = this.clients.get(userId);
             if (client) {
+                try {
+                    await client.logout();
+                } catch (e) {
+                    // Ignorer les erreurs de logout
+                }
                 await client.destroy();
                 this.clients.delete(userId);
                 this.pendingQRs.delete(userId);
@@ -590,7 +589,8 @@ class WhatsAppService {
             this.stopReconnectAttempts(userId);
             await this.removeSessionFromRedis(userId);
 
-            const sessionDir = path.join(this.sessionPath, userId.toString());
+            // Nettoyer le dossier de session
+            const sessionDir = path.join(this.sessionPath, `session-${userId}`);
             try {
                 await fs.rm(sessionDir, { recursive: true, force: true });
             } catch (err) {
@@ -729,8 +729,12 @@ class WhatsAppService {
             
             try {
                 await this.createUserSession(userId);
-                if (await this.isConnected(userId)) {
-                    this.stopReconnectAttempts(userId);
+                const client = this.clients.get(userId);
+                if (client) {
+                    const state = await client.getState();
+                    if (state === 'CONNECTED') {
+                        this.stopReconnectAttempts(userId);
+                    }
                 }
             } catch (error) {
                 LogService.error('Reconnect attempt failed:', { userId, attempt: attempts, error });
@@ -768,7 +772,8 @@ class WhatsAppService {
                         const lastActive = new Date(session.lastActive);
                         const hoursSinceActive = (Date.now() - lastActive) / (1000 * 60 * 60);
                         
-                        if (hoursSinceActive > 24 && !client.isConnected) {
+                        const state = await client.getState();
+                        if (hoursSinceActive > 24 && state !== 'CONNECTED') {
                             LogService.info('Removing inactive client:', { userId, hoursSinceActive });
                             await this.logout(userId);
                         }
