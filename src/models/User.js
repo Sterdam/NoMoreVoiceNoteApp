@@ -52,14 +52,21 @@ const userSchema = new mongoose.Schema({
             type: Boolean,
             default: true
         },
-        autoSummarize: {
-            type: Boolean,
-            default: true
+        summaryLevel: {
+            type: String,
+            enum: ['none', 'concise', 'detailed'],
+            default: 'concise',
+            description: 'none: pas de résumé, concise: résumé court (2-3 phrases), detailed: résumé détaillé (5-7 phrases)'
         },
         summaryLanguage: {
             type: String,
             enum: ['same', 'fr', 'en', 'es', 'de', 'it', 'pt'],
             default: 'same'
+        },
+        separateConversation: {
+            type: Boolean,
+            default: false,
+            description: 'Pour les comptes payants : envoyer les transcriptions dans une conversation séparée'
         },
         notificationPreferences: {
             email: {

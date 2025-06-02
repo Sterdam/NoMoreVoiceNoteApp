@@ -1,8 +1,5 @@
-#!/usr/bin/env node
 require('dotenv').config();
-const Stripe = require('stripe');
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 async function setupStripeProducts() {
     try {
@@ -11,102 +8,51 @@ async function setupStripeProducts() {
         // Créer le produit principal
         const product = await stripe.products.create({
             name: 'VoxKill',
-            description: 'Service de transcription automatique des messages vocaux WhatsApp',
+            description: 'Service de transcription WhatsApp avec IA',
             metadata: {
-                service: 'whatsapp-transcriber'
+                service: 'voxkill'
             }
         });
 
         console.log('✅ Produit créé:', product.id);
 
         // Créer les prix pour chaque plan
-        const plans = {
-            basic: {
-                amount: 999, // 9.99€ en centimes
-                nickname: 'Plan Basic',
-                metadata: {
-                    minutesPerMonth: '300',
-                    summariesPerMonth: '500'
-                }
+        const plans = [
+            {
+                nickname: 'Basic',
+                unit_amount: 999, // 9.99€
+                currency: 'eur',
+                recurring: { interval: 'month' },
+                metadata: { plan: 'basic' }
             },
-            pro: {
-                amount: 2999, // 29.99€
-                nickname: 'Plan Pro',
-                metadata: {
-                    minutesPerMonth: '1200',
-                    summariesPerMonth: '2000'
-                }
+            {
+                nickname: 'Pro',
+                unit_amount: 2999, // 29.99€
+                currency: 'eur',
+                recurring: { interval: 'month' },
+                metadata: { plan: 'pro' }
             },
-            enterprise: {
-                amount: 9999, // 99.99€
-                nickname: 'Plan Enterprise',
-                metadata: {
-                    minutesPerMonth: '6000',
-                    summariesPerMonth: '10000'
-                }
+            {
+                nickname: 'Enterprise',
+                unit_amount: 9999, // 99.99€
+                currency: 'eur',
+                recurring: { interval: 'month' },
+                metadata: { plan: 'enterprise' }
             }
-        };
+        ];
 
-        console.log('\n📋 Création des prix...\n');
-
-        for (const [key, plan] of Object.entries(plans)) {
+        const prices = {};
+        for (const plan of plans) {
             const price = await stripe.prices.create({
                 product: product.id,
-                unit_amount: plan.amount,
-                currency: 'eur',
-                recurring: {
-                    interval: 'month'
-                },
-                nickname: plan.nickname,
-                metadata: plan.metadata
+                ...plan
             });
-
-            console.log(`✅ ${plan.nickname}: ${price.id}`);
-            console.log(`   Ajoutez à votre .env: STRIPE_${key.toUpperCase()}_PRICE_ID=${price.id}`);
+            prices[plan.metadata.plan] = price.id;
+            console.log(`✅ Prix ${plan.nickname} créé:`, price.id);
         }
 
-        // Configuration du portail client
-        const portalConfig = await stripe.billingPortal.configurations.create({
-            business_profile: {
-                headline: 'Gérez votre abonnement VoxKill'
-            },
-            features: {
-                invoice_history: {
-                    enabled: true
-                },
-                payment_method_update: {
-                    enabled: true
-                },
-                subscription_cancel: {
-                    enabled: true,
-                    mode: 'at_period_end',
-                    cancellation_reason: {
-                        enabled: true,
-                        options: [
-                            'too_expensive',
-                            'missing_features',
-                            'switched_service',
-                            'unused',
-                            'other'
-                        ]
-                    }
-                },
-                subscription_pause: {
-                    enabled: false
-                },
-                subscription_update: {
-                    enabled: true,
-                    default_allowed_updates: ['price'],
-                    proration_behavior: 'create_prorations'
-                }
-            }
-        });
-
-        console.log('\n✅ Configuration du portail client créée');
-        console.log(`   ID: ${portalConfig.id}`);
-
         // Créer le webhook endpoint
-        const webhookEndpoint = await stripe.webhookEndpoints.create({
+        const webhook = await stripe.webhookEndpoints.create({
             url: `${process.env.FRONTEND_URL}/api/payment/webhook`,
             enabled_events: [
                 'checkout.session.completed',
@@ -118,25 +64,42 @@ async function setupStripeProducts() {
             ]
         });
 
-        console.log('\n✅ Webhook endpoint créé');
-        console.log(`   URL: ${webhookEndpoint.url}`);
-        console.log(`   Secret: ${webhookEndpoint.secret}`);
-        console.log(`   Ajoutez à votre .env: STRIPE_WEBHOOK_SECRET=${webhookEndpoint.secret}`);
+        console.log('✅ Webhook créé:', webhook.url);
+        console.log('⚠️  Webhook secret:', webhook.secret);
 
-        console.log('\n🎉 Configuration Stripe terminée avec succès !');
-        console.log('\n⚠️  N\'oubliez pas de mettre à jour votre fichier .env avec les IDs ci-dessus.');
+        // Configuration du portail client
+        const portalConfig = await stripe.billingPortal.configurations.create({
+            business_profile: {
+                headline: 'Gérez votre abonnement VoxKill',
+                privacy_policy_url: `${process.env.FRONTEND_URL}/privacy`,
+                terms_of_service_url: `${process.env.FRONTEND_URL}/terms`
+            },
+            features: {
+                invoice_history: { enabled: true },
+                payment_method_update: { enabled: true },
+                subscription_cancel: { enabled: true },
+                subscription_update: {
+                    enabled: true,
+                    default_allowed_updates: ['price'],
+                    products: [{ product: product.id, prices: Object.values(prices) }]
+                }
+            }
+        });
+
+        console.log('✅ Portail client configuré');
+
+        // Afficher les variables d'environnement à ajouter
+        console.log('\n📋 Ajoutez ces variables à votre .env:\n');
+        console.log(`STRIPE_BASIC_PRICE_ID=${prices.basic}`);
+        console.log(`STRIPE_PRO_PRICE_ID=${prices.pro}`);
+        console.log(`STRIPE_ENTERPRISE_PRICE_ID=${prices.enterprise}`);
+        console.log(`STRIPE_WEBHOOK_SECRET=${webhook.secret}`);
+        console.log(`STRIPE_PORTAL_CONFIG_ID=${portalConfig.id}`);
 
     } catch (error) {
-        console.error('\n❌ Erreur lors de la configuration:', error.message);
+        console.error('❌ Erreur:', error.message);
         process.exit(1);
     }
 }
 
-// Vérifier que la clé API est définie
-if (!process.env.STRIPE_SECRET_KEY) {
-    console.error('❌ STRIPE_SECRET_KEY non définie dans le fichier .env');
-    process.exit(1);
-}
-
-// Lancer la configuration
 setupStripeProducts();
