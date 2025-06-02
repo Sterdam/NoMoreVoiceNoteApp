@@ -174,67 +174,63 @@
   },
   "auth": {
     "login": {
-      "title": "Bon retour !",
+      "welcomeBack": "Bon retour !",
       "subtitle": "Connectez-vous pour accéder à vos transcriptions",
       "email": "Email",
       "emailPlaceholder": "vous@exemple.com",
       "password": "Mot de passe",
+      "passwordPlaceholder": "Votre mot de passe",
       "rememberMe": "Se souvenir de moi",
       "forgotPassword": "Mot de passe oublié ?",
-      "submit": "Se connecter",
-      "submitting": "Connexion...",
-      "newUser": "Nouveau sur VoxKill ?",
+      "loginButton": "Se connecter",
+      "loggingIn": "Connexion...",
+      "newToVoxKill": "Nouveau sur VoxKill ?",
       "createAccount": "Créer un compte gratuitement",
-      "success": "Connexion réussie !",
-      "error": "Erreur de connexion",
-      "benefits": {
-        "title": "Transformez vos notes vocales en texte",
-        "subtitle": "Transcription rapide et précise de vos messages WhatsApp avec notre IA avancée.",
-        "languages": "Plus de 50 langues supportées",
-        "security": "Sécurité et confidentialité garanties",
-        "summaries": "Résumés intelligents inclus"
-      }
+      "loginSuccess": "Connexion réussie !",
+      "loginError": "Erreur de connexion",
+      "heroTitle": "Transformez vos notes vocales en texte",
+      "heroSubtitle": "Transcription rapide et précise de vos messages WhatsApp avec notre IA avancée.",
+      "feature1": "Plus de 50 langues supportées",
+      "feature2": "Sécurité et confidentialité garanties",
+      "feature3": "Résumés intelligents inclus"
     },
     "register": {
       "title": "Créez votre compte gratuit",
       "subtitle": "Commencez à transcrire vos notes vocales en quelques secondes",
-      "welcomeTitle": "Commencez gratuitement",
-      "welcomeSubtitle": "Créez votre compte et profitez immédiatement de tous les avantages de VoxKill.",
-      "email": "Adresse email",
+      "startFree": "Commencez gratuitement",
+      "createAccountBenefit": "Créez votre compte et profitez immédiatement de tous les avantages de VoxKill.",
+      "emailLabel": "Adresse email",
       "emailPlaceholder": "vous@exemple.com",
-      "whatsapp": "Numéro WhatsApp",
+      "whatsappLabel": "Numéro WhatsApp",
       "whatsappPlaceholder": "+33 6 12 34 56 78",
       "whatsappHelp": "Format international avec indicatif pays",
-      "password": "Mot de passe",
-      "terms": {
-        "accept": "J'accepte les",
-        "conditions": "conditions d'utilisation",
-        "and": "et la",
-        "privacy": "politique de confidentialité"
-      },
-      "submit": "Créer mon compte gratuit",
-      "submitting": "Création du compte...",
-      "alreadyAccount": "Déjà un compte ?",
-      "login": "Se connecter",
+      "passwordLabel": "Mot de passe",
+      "passwordPlaceholder": "Votre mot de passe",
+      "termsPrefix": "J'accepte les",
+      "termsLink": "conditions d'utilisation",
+      "termsMiddle": "et la",
+      "privacyLink": "politique de confidentialité",
+      "submitButton": "Créer mon compte gratuit",
+      "loading": "Création du compte...",
+      "alreadyHaveAccount": "Déjà un compte ?",
+      "loginLink": "Se connecter",
       "success": "Compte créé avec succès !",
       "error": "Erreur lors de l'inscription",
-      "stats": {
-        "users": "Déjà plus de 10,000 utilisateurs",
-        "rating": "4.9/5 sur 1,234 avis"
-      },
-      "benefits": [
-        "10 transcriptions gratuites par mois",
-        "Support multilingue (50+ langues)",
-        "Sécurité et confidentialité garanties",
-        "Pas de carte bancaire requise"
-      ]
+      "userCount": "Déjà plus de 10,000 utilisateurs",
+      "rating": "4.9/5 sur 1,234 avis",
+      "benefits": {
+        "freeTranscriptions": "10 transcriptions gratuites par mois",
+        "multilingual": "Support multilingue (50+ langues)",
+        "security": "Sécurité et confidentialité garanties",
+        "noCreditCard": "Pas de carte bancaire requise"
+      }
     },
     "validation": {
       "emailRequired": "Email requis",
       "emailInvalid": "Email invalide",
       "passwordRequired": "Mot de passe requis",
-      "passwordMin": "Minimum 6 caractères",
-      "passwordComplex": "Doit contenir majuscule, minuscule et chiffre",
+      "passwordMinLength": "Minimum 6 caractères",
+      "passwordComplexity": "Doit contenir majuscule, minuscule et chiffre",
       "whatsappRequired": "Numéro WhatsApp requis",
       "whatsappInvalid": "Format invalide (ex: +33612345678)",
       "termsRequired": "Vous devez accepter les conditions"

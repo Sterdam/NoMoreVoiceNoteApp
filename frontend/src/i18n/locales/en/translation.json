@@ -174,67 +174,63 @@
   },
   "auth": {
     "login": {
-      "title": "Welcome back!",
+      "welcomeBack": "Welcome back!",
       "subtitle": "Log in to access your transcriptions",
       "email": "Email",
       "emailPlaceholder": "you@example.com",
       "password": "Password",
+      "passwordPlaceholder": "Your password",
       "rememberMe": "Remember me",
       "forgotPassword": "Forgot password?",
-      "submit": "Log in",
-      "submitting": "Logging in...",
-      "newUser": "New to VoxKill?",
+      "loginButton": "Log in",
+      "loggingIn": "Logging in...",
+      "newToVoxKill": "New to VoxKill?",
       "createAccount": "Create a free account",
-      "success": "Login successful!",
-      "error": "Login error",
-      "benefits": {
-        "title": "Transform your voice notes into text",
-        "subtitle": "Fast and accurate transcription of your WhatsApp messages with our advanced AI.",
-        "languages": "Over 50 languages supported",
-        "security": "Security and privacy guaranteed",
-        "summaries": "Smart summaries included"
-      }
+      "loginSuccess": "Login successful!",
+      "loginError": "Login error",
+      "heroTitle": "Transform your voice notes into text",
+      "heroSubtitle": "Fast and accurate transcription of your WhatsApp messages with our advanced AI.",
+      "feature1": "Over 50 languages supported",
+      "feature2": "Security and privacy guaranteed",
+      "feature3": "Smart summaries included"
     },
     "register": {
       "title": "Create your free account",
       "subtitle": "Start transcribing your voice notes in seconds",
-      "welcomeTitle": "Start for free",
-      "welcomeSubtitle": "Create your account and immediately enjoy all the benefits of VoxKill.",
-      "email": "Email address",
+      "startFree": "Start for free",
+      "createAccountBenefit": "Create your account and immediately enjoy all the benefits of VoxKill.",
+      "emailLabel": "Email address",
       "emailPlaceholder": "you@example.com",
-      "whatsapp": "WhatsApp number",
+      "whatsappLabel": "WhatsApp number",
       "whatsappPlaceholder": "+1 555 123 4567",
       "whatsappHelp": "International format with country code",
-      "password": "Password",
-      "terms": {
-        "accept": "I accept the",
-        "conditions": "terms of service",
-        "and": "and the",
-        "privacy": "privacy policy"
-      },
-      "submit": "Create my free account",
-      "submitting": "Creating account...",
-      "alreadyAccount": "Already have an account?",
-      "login": "Log in",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "Your password",
+      "termsPrefix": "I accept the",
+      "termsLink": "terms of service",
+      "termsMiddle": "and the",
+      "privacyLink": "privacy policy",
+      "submitButton": "Create my free account",
+      "loading": "Creating account...",
+      "alreadyHaveAccount": "Already have an account?",
+      "loginLink": "Log in",
       "success": "Account created successfully!",
       "error": "Registration error",
-      "stats": {
-        "users": "Over 10,000 users already",
-        "rating": "4.9/5 from 1,234 reviews"
-      },
-      "benefits": [
-        "10 free transcriptions per month",
-        "Multilingual support (50+ languages)",
-        "Security and privacy guaranteed",
-        "No credit card required"
-      ]
+      "userCount": "Over 10,000 users already",
+      "rating": "4.9/5 from 1,234 reviews",
+      "benefits": {
+        "freeTranscriptions": "10 free transcriptions per month",
+        "multilingual": "Multilingual support (50+ languages)",
+        "security": "Security and privacy guaranteed",
+        "noCreditCard": "No credit card required"
+      }
     },
     "validation": {
       "emailRequired": "Email required",
       "emailInvalid": "Invalid email",
       "passwordRequired": "Password required",
-      "passwordMin": "Minimum 6 characters",
-      "passwordComplex": "Must contain uppercase, lowercase and number",
+      "passwordMinLength": "Minimum 6 characters",
+      "passwordComplexity": "Must contain uppercase, lowercase and number",
       "whatsappRequired": "WhatsApp number required",
       "whatsappInvalid": "Invalid format (e.g. +1234567890)",
       "termsRequired": "You must accept the terms"
