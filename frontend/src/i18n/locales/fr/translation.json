@@ -237,8 +237,28 @@
     }
   },
   "dashboard": {
+    "sidebar": {
+      "overview": "Vue d'ensemble",
+      "transcriptions": "Transcriptions",
+      "whatsapp": "WhatsApp",
+      "subscription": "Abonnement",
+      "settings": "Paramètres",
+      "plan": "Plan",
+      "logout": "Déconnexion"
+    },
     "overview": {
       "title": "Tableau de bord",
+      "totalTranscriptions": "Transcriptions totales",
+      "transcribedMinutes": "Minutes transcrites",
+      "detectedLanguages": "Langues détectées",
+      "whatsappStatus": "Statut WhatsApp",
+      "connected": "Connecté",
+      "disconnected": "Déconnecté",
+      "dailyActivity": "Activité quotidienne",
+      "transcriptionsPerDay": "Nombre de transcriptions par jour",
+      "languageDistribution": "Répartition par langue",
+      "recentTranscriptions": "Transcriptions récentes",
+      "last5Transcriptions": "Vos 5 dernières transcriptions",
       "stats": {
         "totalTranscriptions": "Transcriptions totales",
         "minutesTranscribed": "Minutes transcrites",
@@ -250,10 +270,6 @@
         "dailyActivitySubtitle": "Nombre de transcriptions par jour",
         "languagesChart": "Langues détectées",
         "languagesChartSubtitle": "Répartition par langue"
-      },
-      "recentTranscriptions": {
-        "title": "Transcriptions récentes",
-        "subtitle": "Vos 5 dernières transcriptions"
       }
     },
     "transcriptions": {
@@ -312,7 +328,56 @@
       "summaryLanguage": "Langue des résumés",
       "summaryLanguageSame": "Même langue que la transcription",
       "saveButton": "Sauvegarder les paramètres",
-      "saved": "Paramètres sauvegardés"
+      "saved": "Paramètres sauvegardés",
+      "summaryLevel": "Niveau de résumé",
+      "summaryProOnly": "Les résumés sont disponibles uniquement avec un plan Pro",
+      "separateConversation": "Conversation séparée",
+      "separateConversationDescription": "Recevoir les transcriptions dans une conversation WhatsApp dédiée (vous avec vous-même)",
+      "separateConversationProOnly": "⭐ Fonctionnalité Pro - Gardez vos conversations propres",
+      "notifications": "Préférences de notification",
+      "emailNotifications": "Notifications par email",
+      "usageAlerts": "Alertes d'utilisation (quota proche de la limite)",
+      "languages": {
+        "auto": "Détection automatique",
+        "fr": "Français",
+        "en": "Anglais",
+        "es": "Espagnol",
+        "de": "Allemand",
+        "it": "Italien",
+        "pt": "Portugais",
+        "nl": "Néerlandais",
+        "pl": "Polonais",
+        "ru": "Russe",
+        "ja": "Japonais",
+        "ko": "Coréen",
+        "zh": "Chinois"
+      },
+      "proFeatures": "Débloquez les fonctionnalités Pro",
+      "proFeaturesDescription": "Améliorez votre expérience avec ces fonctionnalités premium",
+      "proFeature1Title": "Conversation privée",
+      "proFeature1Description": "Toutes vos transcriptions dans une conversation dédiée, sans déranger vos chats",
+      "proFeature2Title": "Résumés intelligents",
+      "proFeature2Description": "Obtenez l'essentiel en 2-3 phrases ou un résumé détaillé structuré",
+      "proFeature3Title": "100 heures/mois",
+      "proFeature3Description": "Transcrivez jusqu'à 100 heures de messages vocaux chaque mois",
+      "upgradeToPro": "Passer à Pro maintenant"
+    
+    },
+    "summaryLevels": {
+      "recommended": "Recommandé",
+      "none": {
+        "name": "Sans résumé",
+        "description": "Transcription uniquement"
+      },
+      "concise": {
+        "name": "Résumé concis",
+        "description": "2-3 phrases essentielles"
+      },
+      "detailed": {
+        "name": "Résumé détaillé",
+        "description": "5-7 phrases structurées avec points clés"
+      }
+  
     },
     "transcriptModal": {
       "title": "Détails de la transcription",

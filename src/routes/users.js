@@ -6,6 +6,7 @@ const User = require('../models/User');
 const LogService = require('../services/LogService');
 const WhatsAppService = require('../services/WhatsAppService');
 const { t } = require('../utils/translate');
+const Subscription = require('../models/Subscription');
 
 // Obtenir le profil de l'utilisateur
 router.get('/profile', auth, async (req, res) => {
@@ -29,17 +30,64 @@ router.patch('/profile', auth, async (req, res) => {
     }
 
     try {
-        const user = req.user;
+        const user = await User.findById(req.user._id);
+        
+        if (!user) {
+            return res.status(404).json({ error: t('users.profile.user_not_found', req) });
+        }
 
-        updates.forEach(update => {
+        updates.forEach(async update => {
             if (update === 'email') {
                 user.email = req.body.email.toLowerCase();
+            } else if (update === 'settings') {
+                // Fusionner les nouveaux settings avec les anciens
+                user.settings = {
+                    ...user.settings,
+                    ...req.body.settings
+                };
+                
+                // Validation des settings
+                if (req.body.settings.summaryLevel) {
+                    const validLevels = ['none', 'concise', 'detailed'];
+                    if (!validLevels.includes(req.body.settings.summaryLevel)) {
+                        throw new Error('Invalid summary level');
+                    }
+                }
+                
+                if (req.body.settings.transcriptionLanguage) {
+                    const validLanguages = ['auto', 'fr', 'en', 'es', 'de', 'it', 'pt', 'nl', 'pl', 'ru', 'ja', 'ko', 'zh'];
+                    if (!validLanguages.includes(req.body.settings.transcriptionLanguage)) {
+                        throw new Error('Invalid transcription language');
+                    }
+                }
+                
+                if (req.body.settings.summaryLanguage) {
+                    const validSummaryLanguages = ['same', 'fr', 'en', 'es', 'de', 'it', 'pt'];
+                    if (!validSummaryLanguages.includes(req.body.settings.summaryLanguage)) {
+                        throw new Error('Invalid summary language');
+                    }
+                }
+                
+                // Vérifier les droits pour certaines fonctionnalités
+                if (req.body.settings.separateConversation || req.body.settings.summaryLevel !== 'none') {
+                    const subscription = await Subscription.findOne({ userId: user._id });
+                    if (!subscription || subscription.plan === 'trial') {
+                        return res.status(403).json({ 
+                            error: t('users.profile.pro_feature_required', req) 
+                        });
+                    }
+                }
             } else {
                 user[update] = req.body[update];
             }
         });
 
         await user.save();
+
+        LogService.info('User profile updated', {
+            userId: user._id,
+            updates: updates.filter(u => u !== 'password')
+        });
 
         res.json({
             message: t('users.profile.update_success', req),
@@ -51,7 +99,15 @@ router.patch('/profile', auth, async (req, res) => {
             }
         });
     } catch (error) {
-        LogService.error('Error updating profile:', { userId: req.user._id, error });
+        LogService.error('Error updating profile:', { 
+            userId: req.user._id, 
+            error: error.message 
+        });
+        
+        if (error.message.includes('Invalid')) {
+            return res.status(400).json({ error: error.message });
+        }
+        
         res.status(400).json({ error: t('users.profile.update_error', req) });
     }
 });

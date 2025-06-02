@@ -12,7 +12,6 @@ const { promisify } = require('util');
 const execAsync = promisify(exec);
 const fsSync = require('fs');
 const { getRedisClient } = require('../config/redis');
-const QueueService = require('./QueueService');
 const { t } = require('../utils/translate');
 
 class WhatsAppService {
@@ -24,7 +23,8 @@ class WhatsAppService {
         this.redis = null;
         this.reconnectIntervals = new Map();
         this.maxReconnectAttempts = 5;
-        this.reconnectDelay = 30000; // 30 secondes
+        this.reconnectDelay = 30000;
+        this.selfChatIds = new Map(); // Store self-chat IDs per user
         this.initialize();
     }
 
@@ -33,14 +33,10 @@ class WhatsAppService {
             await fs.mkdir(this.sessionPath, { recursive: true });
             await fs.mkdir(this.tempPath, { recursive: true });
             
-            // Initialiser Redis pour les sessions
             this.redis = getRedisClient();
-            
-            // Restaurer les sessions depuis Redis
             await this.restoreSessionsFromRedis();
             
-            // Nettoyer la mémoire périodiquement
-            setInterval(() => this.performMemoryCleanup(), 300000); // 5 minutes
+            setInterval(() => this.performMemoryCleanup(), 300000);
             
             LogService.info('WhatsApp service initialized with Redis support');
         } catch (error) {
@@ -53,7 +49,7 @@ class WhatsAppService {
             // Vérifier l'abonnement et les limites
             const subscription = await Subscription.findOne({ userId });
             if (!subscription || !subscription.isActive()) {
-                await message.reply(t('whatsapp.subscription_expired', req));
+                await message.reply("❌ Votre abonnement a expiré. Renouvelez sur voxkill.com/dashboard");
                 return;
             }
     
@@ -79,7 +75,7 @@ class WhatsAppService {
             const fileSizeMB = stats.size / (1024 * 1024);
             
             if (fileSizeMB > 25) {
-                await message.reply(t('whatsapp.file_too_large', req));
+                await message.reply("❌ Fichier trop volumineux (max 25MB)");
                 await this.cleanupTempFiles(filename);
                 return;
             }
@@ -89,7 +85,7 @@ class WhatsAppService {
             
             if (duration > subscription.limits.maxAudioDuration) {
                 const maxMinutes = subscription.limits.maxAudioDuration / 60;
-                await message.reply(t('whatsapp.audio_too_long', req, { maxMinutes }));
+                await message.reply(`❌ Audio trop long (max ${maxMinutes} min). Passez au plan supérieur.`);
                 await this.cleanupTempFiles(filename);
                 return;
             }
@@ -97,13 +93,16 @@ class WhatsAppService {
             // Vérifier le quota
             const remainingMinutes = await usage.getRemainingMinutes();
             if (remainingMinutes < durationMinutes) {
-                await message.reply(t('whatsapp.quota_exceeded', req, { remainingMinutes: remainingMinutes.toFixed(1) }));
+                await message.reply(`❌ Quota dépassé. Il reste ${remainingMinutes.toFixed(1)} min.`);
                 await this.cleanupTempFiles(filename);
                 return;
             }
             
-            // Message de traitement en cours
-            const processingMsg = await message.reply(t('whatsapp.transcription_in_progress', req));
+            // Message de traitement en cours - seulement si pas de conversation séparée
+            let processingMsg = null;
+            if (!user.settings.separateConversation || subscription.plan === 'trial') {
+                processingMsg = await message.reply("🎤 Transcription en cours...");
+            }
             
             try {
                 // Convertir et transcrire
@@ -118,13 +117,15 @@ class WhatsAppService {
                 
                 // Générer le résumé selon le niveau choisi
                 let summary = null;
-                if (user.settings.summaryLevel !== 'none') {
+                if (user.settings.summaryLevel !== 'none' && subscription.plan !== 'trial') {
                     const canSummarize = await usage.canSummarize();
                     if (canSummarize) {
                         summary = await SummaryService.generateSummary(
                             transcriptionResult.text,
                             user.settings.summaryLevel,
-                            transcriptionResult.language
+                            user.settings.summaryLanguage === 'same' 
+                                ? transcriptionResult.language 
+                                : user.settings.summaryLanguage
                         );
                         
                         if (summary) {
@@ -145,9 +146,12 @@ class WhatsAppService {
                     status: 'completed',
                     metadata: {
                         senderName,
-                        chatName: chat.name,
+                        chatName: chat.name || 'Chat privé',
+                        chatId: chat.id._serialized,
                         originalFilename: filename,
-                        cost: durationMinutes * 0.006
+                        cost: durationMinutes * 0.006,
+                        fromNumber: contact.number,
+                        timestamp: message.timestamp
                     }
                 });
                 
@@ -157,8 +161,11 @@ class WhatsAppService {
                 await usage.addTranscription(durationMinutes, durationMinutes * 0.006, transcript._id);
                 
                 // Construire la réponse
-                let replyText = this.formatTranscriptionMessage({
+                const replyText = this.formatTranscriptionMessage({
                     senderName,
+                    senderNumber: contact.number,
+                    chatName: chat.name || 'Chat privé',
+                    timestamp: new Date(message.timestamp * 1000),
                     duration: durationMinutes,
                     text: transcriptionResult.text,
                     summary,
@@ -166,24 +173,40 @@ class WhatsAppService {
                     remainingMinutes: await usage.getRemainingMinutes(),
                     totalMinutes: subscription.limits.minutesPerMonth,
                     showAd: AdService.shouldShowAd(subscription),
-                    language: transcriptionResult.language
+                    language: transcriptionResult.language,
+                    plan: subscription.plan
                 });
                 
-                // Supprimer le message "en cours"
-                if (processingMsg.deletable) {
-                    await processingMsg.delete();
+                // Supprimer le message "en cours" si existe
+                if (processingMsg && processingMsg.delete) {
+                    try {
+                        await processingMsg.delete(true);
+                    } catch (e) {
+                        // Ignorer si impossible de supprimer
+                    }
                 }
                 
                 // Déterminer où envoyer la réponse
                 if (user.settings.separateConversation && subscription.plan !== 'trial') {
-                    await this.sendToSeparateConversation(userId, contact, replyText);
+                    await this.sendToSeparateConversation(userId, replyText, {
+                        originalChat: chat,
+                        originalContact: contact,
+                        senderName
+                    });
                 } else {
                     await message.reply(replyText);
                 }
                 
+                LogService.info('Voice message processed successfully', {
+                    userId,
+                    duration: durationMinutes,
+                    language: transcriptionResult.language,
+                    hasSummary: !!summary
+                });
+                
             } catch (transcriptionError) {
                 LogService.error('Transcription error:', transcriptionError);
-                await message.reply(t('whatsapp.transcription_error', req));
+                await message.reply("❌ Erreur lors de la transcription. Support: support@voxkill.com");
                 throw transcriptionError;
             } finally {
                 await this.cleanupTempFiles(filename);
@@ -202,20 +225,47 @@ class WhatsAppService {
         const AdService = require('./AdService');
         const SummaryService = require('./SummaryService');
         
-        let message = `📝 **Transcription de ${data.senderName}** (${data.duration.toFixed(1)} min)\n\n`;
+        let message = '';
+        
+        // En-tête avec contexte
+        if (data.plan !== 'trial' && data.senderNumber) {
+            const formattedDate = data.timestamp.toLocaleString('fr-FR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            message += `📍 **${data.chatName}**\n`;
+            message += `👤 ${data.senderName} (${data.senderNumber})\n`;
+            message += `📅 ${formattedDate}\n`;
+            message += `⏱️ ${data.duration.toFixed(1)} min | 🌐 ${data.language.toUpperCase()}\n`;
+            message += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+        } else {
+            // Format simplifié pour trial
+            message += `📝 **Transcription** (${data.duration.toFixed(1)} min)\n\n`;
+        }
+        
+        // Transcription
+        message += `📄 **TRANSCRIPTION**\n`;
         message += `${data.text}\n`;
         
+        // Résumé si disponible
         if (data.summary && data.summaryLevel !== 'none') {
             const summaryInfo = SummaryService.getSummaryLevelInfo(data.summaryLevel);
-            message += `\n${summaryInfo.icon} **${summaryInfo.name}**\n${data.summary}\n`;
+            message += `\n━━━━━━━━━━━━━━━━━━━━━━\n`;
+            message += `${summaryInfo.icon} **${summaryInfo.name.toUpperCase()}**\n`;
+            message += `${data.summary}\n`;
         }
         
         // Statistiques d'utilisation
         const percentUsed = ((data.totalMinutes - data.remainingMinutes) / data.totalMinutes * 100).toFixed(0);
-        message += `\n⏱️ Quota: ${data.remainingMinutes.toFixed(0)}/${data.totalMinutes} min (${percentUsed}% utilisé)`;
+        message += `\n━━━━━━━━━━━━━━━━━━━━━━\n`;
+        message += `📊 **Utilisation**: ${percentUsed}% (${data.remainingMinutes.toFixed(0)}/${data.totalMinutes} min restantes)\n`;
         
         if (percentUsed > 80) {
-            message += `\n⚠️ Plus que ${100 - percentUsed}% de quota !`;
+            message += `⚠️ **Attention**: Plus que ${100 - percentUsed}% de quota !\n`;
         }
         
         // Ajouter publicité si compte gratuit
@@ -224,89 +274,69 @@ class WhatsAppService {
             message += AdService.formatAdForWhatsApp(ad);
         }
         
+        // Footer
+        message += `\n💬 _VoxKill - voxkill.com_`;
+        
         return message;
     }
     
-    async sendToSeparateConversation(userId, originalContact, message) {
+    async sendToSeparateConversation(userId, message, context) {
         try {
             const client = this.clients.get(userId);
-            if (!client) return;
-            
-            // Créer un nom unique pour le chat
-            const chatName = `📝 VoxKill - ${originalContact.pushname || originalContact.name || 'Transcription'}`;
-            
-            // Essayer de créer un groupe avec seulement l'utilisateur
-            // ou envoyer à "Messages enregistrés" si disponible
-            const myNumber = client.info.wid._serialized;
-            
-            // Option 1: Envoyer aux messages enregistrés (si WhatsApp Business)
-            try {
-                const savedMessages = await client.getContactById(myNumber);
-                if (savedMessages) {
-                    await savedMessages.sendMessage(message);
-                    return;
-                }
-            } catch (e) {
-                LogService.debug('Messages enregistrés non disponibles');
-            }
-            
-            // Option 2: Créer une conversation avec soi-même
-            try {
-                await client.sendMessage(myNumber, message);
+            if (!client) {
+                LogService.error('Client not found for separate conversation');
                 return;
-            } catch (e) {
-                LogService.debug('Auto-message non disponible');
             }
             
-            // Option 3: Fallback - envoyer dans la conversation originale avec un préfixe
-            await originalContact.sendMessage(`[Transcription privée]\n${message}`);
+            // Obtenir ou créer l'ID de la conversation self
+            let selfChatId = this.selfChatIds.get(userId);
             
-        } catch (error) {
-            LogService.error('Error sending to separate conversation:', error);
-            // Fallback: envoyer dans la conversation originale
-            await originalContact.sendMessage(message);
-        }
-    }
-    
-
-    async getAudioDuration(filepath) {
-        try {
-            const command = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filepath}"`;
-            const { stdout } = await execAsync(command);
-            return parseFloat(stdout.trim());
-        } catch (error) {
-            LogService.error('Error getting audio duration:', error);
-            return 0;
-        }
-    }
-
-    async convertToWav(filepath) {
-        const wavPath = filepath.replace('.ogg', '.wav');
-        const command = `ffmpeg -i "${filepath}" -ar 16000 -ac 1 -c:a pcm_s16le "${wavPath}"`;
-        
-        await execAsync(command);
-        return wavPath;
-    }
-
-    async cleanupTempFiles(filename) {
-        const baseFilename = filename.replace('.ogg', '');
-        const extensions = ['.ogg', '.wav'];
-        
-        for (const ext of extensions) {
-            const filePath = path.join(this.tempPath, baseFilename + ext);
+            if (!selfChatId) {
+                // Obtenir le numéro de l'utilisateur
+                const userNumber = client.info.wid.user + '@c.us';
+                selfChatId = userNumber;
+                this.selfChatIds.set(userId, selfChatId);
+                
+                // Sauvegarder dans Redis pour persistance
+                await this.redis.setEx(
+                    `whatsapp:selfchat:${userId}`,
+                    86400 * 30, // 30 jours
+                    selfChatId
+                );
+            }
+            
             try {
-                if (fsSync.existsSync(filePath)) {
-                    await fs.unlink(filePath);
+                // Envoyer le message à soi-même
+                await client.sendMessage(selfChatId, message);
+                
+                LogService.info('Message sent to separate conversation', {
+                    userId,
+                    selfChatId,
+                    originalChat: context.originalChat.name
+                });
+                
+            } catch (sendError) {
+                LogService.error('Error sending to self chat:', {
+                    error: sendError.message,
+                    selfChatId
+                });
+                
+                // Fallback: essayer d'envoyer dans le chat original avec un tag
+                try {
+                    const fallbackMessage = `[📥 Transcription privée]\n${message}`;
+                    await client.sendMessage(context.originalChat.id._serialized, fallbackMessage);
+                } catch (fallbackError) {
+                    LogService.error('Fallback send also failed:', fallbackError);
                 }
-            } catch (error) {
-                LogService.warn(`Error deleting file ${filePath}:`, error);
             }
+            
+        } catch (error) {
+            LogService.error('Error in sendToSeparateConversation:', {
+                userId,
+                error: error.message,
+                stack: error.stack
+            });
         }
-    }
-
-    async getUserById(userId) {
-        const User = require('../models/User');
-        return User.findById(userId);
     }
 
     async createUserSession(userId) {
@@ -320,7 +350,10 @@ class WhatsAppService {
             }
 
             const client = new Client({
-                authStrategy: new LocalAuth({ clientId: userId.toString() }),
+                authStrategy: new LocalAuth({ 
+                    clientId: userId.toString(),
+                    dataPath: this.sessionPath
+                }),
                 puppeteer: {
                     headless: true,
                     args: [
@@ -328,14 +361,25 @@ class WhatsAppService {
                         '--disable-setuid-sandbox',
                         '--disable-dev-shm-usage',
                         '--disable-gpu',
-                        '--disable-extensions'
+                        '--disable-extensions',
+                        '--disable-accelerated-2d-canvas',
+                        '--no-first-run',
+                        '--no-zygote'
                     ]
                 }
             });
 
+            // Event handlers
             client.on('qr', async (qr) => {
                 try {
-                    const qrImage = await qrcode.toDataURL(qr);
+                    const qrImage = await qrcode.toDataURL(qr, {
+                        width: 300,
+                        margin: 2,
+                        color: {
+                            dark: '#000000',
+                            light: '#FFFFFF'
+                        }
+                    });
                     this.pendingQRs.set(userId, qrImage.split(',')[1]);
                     LogService.info('QR Code generated for user:', { userId });
                 } catch (error) {
@@ -347,11 +391,28 @@ class WhatsAppService {
                 LogService.info('WhatsApp client ready for user:', { userId });
                 this.pendingQRs.delete(userId);
                 
-                // Sauvegarder l'état dans Redis
-                await this.saveSessionToRedis(userId, 'connected');
+                // Sauvegarder les infos du client
+                const selfChatId = client.info.wid.user + '@c.us';
+                this.selfChatIds.set(userId, selfChatId);
                 
-                // Arrêter les tentatives de reconnexion
+                await this.saveSessionToRedis(userId, 'connected');
                 this.stopReconnectAttempts(userId);
+                
+                // Envoyer un message de bienvenue dans la conversation self
+                try {
+                    const user = await this.getUserById(userId);
+                    if (user.settings.separateConversation) {
+                        await client.sendMessage(selfChatId, 
+                            `🎉 *VoxKill connecté avec succès!*\n\n` +
+                            `✅ Vos transcriptions seront envoyées ici\n` +
+                            `📱 Envoyez-moi vos notes vocales depuis n'importe quelle conversation\n` +
+                            `⚡ Transcription instantanée avec IA\n\n` +
+                            `💡 _Astuce: Épinglez cette conversation pour un accès rapide_`
+                        );
+                    }
+                } catch (e) {
+                    LogService.debug('Could not send welcome message');
+                }
             });
 
             client.on('authenticated', async () => {
@@ -363,9 +424,12 @@ class WhatsAppService {
             client.on('message', async (message) => {
                 try {
                     if (message.hasMedia && message.type === 'ptt') {
-                        // Create a mock req object with user language
                         const user = await this.getUserById(userId);
-                        const req = { user: { language: user?.settings?.language || 'fr' } };
+                        const req = { 
+                            user: { 
+                                language: user?.settings?.transcriptionLanguage || 'fr' 
+                            } 
+                        };
                         await this.handleVoiceMessage(message, userId, req);
                     }
                 } catch (error) {
@@ -383,8 +447,6 @@ class WhatsAppService {
             client.on('disconnected', async (reason) => {
                 LogService.warn('WhatsApp disconnected:', { userId, reason });
                 await this.saveSessionToRedis(userId, 'disconnected');
-                
-                // Planifier une reconnexion automatique
                 this.scheduleReconnect(userId);
             });
 
@@ -427,12 +489,10 @@ class WhatsAppService {
                 await client.destroy();
                 this.clients.delete(userId);
                 this.pendingQRs.delete(userId);
+                this.selfChatIds.delete(userId);
             }
 
-            // Arrêter les tentatives de reconnexion
             this.stopReconnectAttempts(userId);
-            
-            // Supprimer de Redis
             await this.removeSessionFromRedis(userId);
 
             const sessionDir = path.join(this.sessionPath, userId.toString());
@@ -448,8 +508,49 @@ class WhatsAppService {
             throw error;
         }
     }
+
+    // Méthodes utilitaires
+    async getAudioDuration(filepath) {
+        try {
+            const command = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filepath}"`;
+            const { stdout } = await execAsync(command);
+            return parseFloat(stdout.trim());
+        } catch (error) {
+            LogService.error('Error getting audio duration:', error);
+            return 0;
+        }
+    }
+
+    async convertToWav(filepath) {
+        const wavPath = filepath.replace('.ogg', '.wav');
+        const command = `ffmpeg -i "${filepath}" -ar 16000 -ac 1 -c:a pcm_s16le "${wavPath}"`;
+        
+        await execAsync(command);
+        return wavPath;
+    }
+
+    async cleanupTempFiles(filename) {
+        const baseFilename = filename.replace('.ogg', '');
+        const extensions = ['.ogg', '.wav'];
+        
+        for (const ext of extensions) {
+            const filePath = path.join(this.tempPath, baseFilename + ext);
+            try {
+                if (fsSync.existsSync(filePath)) {
+                    await fs.unlink(filePath);
+                }
+            } catch (error) {
+                LogService.warn(`Error deleting file ${filePath}:`, error);
+            }
+        }
+    }
+
+    async getUserById(userId) {
+        const User = require('../models/User');
+        return User.findById(userId);
+    }
     
-    // Nouvelles méthodes pour la gestion Redis et la reconnexion
+    // Redis session management
     async saveSessionToRedis(userId, status) {
         try {
             const sessionData = {
@@ -464,6 +565,16 @@ class WhatsAppService {
                 86400, // 24 heures
                 JSON.stringify(sessionData)
             );
+            
+            // Sauvegarder aussi le selfChatId si disponible
+            const selfChatId = this.selfChatIds.get(userId);
+            if (selfChatId) {
+                await this.redis.setEx(
+                    `whatsapp:selfchat:${userId}`,
+                    86400 * 30, // 30 jours
+                    selfChatId
+                );
+            }
         } catch (error) {
             LogService.error('Error saving session to Redis:', { userId, error });
         }
@@ -472,6 +583,7 @@ class WhatsAppService {
     async removeSessionFromRedis(userId) {
         try {
             await this.redis.del(`whatsapp:session:${userId}`);
+            await this.redis.del(`whatsapp:selfchat:${userId}`);
         } catch (error) {
             LogService.error('Error removing session from Redis:', { userId, error });
         }
@@ -487,6 +599,13 @@ class WhatsAppService {
                     const session = JSON.parse(sessionData);
                     if (session.status === 'connected' || session.status === 'authenticated') {
                         LogService.info('Restoring WhatsApp session:', { userId: session.userId });
+                        
+                        // Restaurer aussi le selfChatId
+                        const selfChatId = await this.redis.get(`whatsapp:selfchat:${session.userId}`);
+                        if (selfChatId) {
+                            this.selfChatIds.set(session.userId, selfChatId);
+                        }
+                        
                         await this.createUserSession(session.userId);
                     }
                 }
@@ -498,7 +617,7 @@ class WhatsAppService {
     
     scheduleReconnect(userId) {
         if (this.reconnectIntervals.has(userId)) {
-            return; // Déjà programmé
+            return;
         }
         
         let attempts = 0;
@@ -515,7 +634,6 @@ class WhatsAppService {
             
             try {
                 await this.createUserSession(userId);
-                // Si succès, isConnected arrêtera l'intervalle
                 if (await this.isConnected(userId)) {
                     this.stopReconnectAttempts(userId);
                 }
@@ -571,29 +689,6 @@ class WhatsAppService {
                 LogService.info('Garbage collection triggered');
             }
         }
-    }
-    
-    async waitForJobResult(jobId, message, maxAttempts = 60) {
-        for (let i = 0; i < maxAttempts; i++) {
-            const jobStatus = await QueueService.getJobStatus(jobId);
-            
-            if (jobStatus.state === 'completed') {
-                return jobStatus;
-            }
-            
-            if (jobStatus.state === 'failed') {
-                throw new Error(jobStatus.failedReason || 'Job failed');
-            }
-            
-            // Envoyer une mise à jour de progression
-            if (i > 0 && i % 10 === 0 && jobStatus.progress) {
-                await message.reply(`⏳ Transcription en cours... ${jobStatus.progress}%`);
-            }
-            
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-        
-        throw new Error('Job timeout');
     }
 }
 

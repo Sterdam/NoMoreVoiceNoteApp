@@ -237,8 +237,28 @@
     }
   },
   "dashboard": {
+    "sidebar": {
+      "overview": "Overview",
+      "transcriptions": "Transcriptions",
+      "whatsapp": "WhatsApp",
+      "subscription": "Subscription",
+      "settings": "Settings",
+      "plan": "Plan",
+      "logout": "Logout"
+    },
     "overview": {
       "title": "Dashboard",
+      "totalTranscriptions": "Total transcriptions",
+      "transcribedMinutes": "Minutes transcribed",
+      "detectedLanguages": "Languages detected",
+      "whatsappStatus": "WhatsApp status",
+      "connected": "Connected",
+      "disconnected": "Disconnected",
+      "dailyActivity": "Daily activity",
+      "transcriptionsPerDay": "Number of transcriptions per day",
+      "languageDistribution": "Distribution by language",
+      "recentTranscriptions": "Recent transcriptions",
+      "last5Transcriptions": "Your last 5 transcriptions",
       "stats": {
         "totalTranscriptions": "Total transcriptions",
         "minutesTranscribed": "Minutes transcribed",
@@ -250,10 +270,6 @@
         "dailyActivitySubtitle": "Number of transcriptions per day",
         "languagesChart": "Languages detected",
         "languagesChartSubtitle": "Distribution by language"
-      },
-      "recentTranscriptions": {
-        "title": "Recent transcriptions",
-        "subtitle": "Your last 5 transcriptions"
       }
     },
     "transcriptions": {
@@ -312,7 +328,39 @@
       "summaryLanguage": "Summary language",
       "summaryLanguageSame": "Same language as transcription",
       "saveButton": "Save settings",
-      "saved": "Settings saved"
+      "saved": "Settings saved",
+      "summaryLevel": "Summary level",
+      "summaryProOnly": "Summaries are only available with a Pro plan",
+      "separateConversation": "Separate conversation",
+      "separateConversationDescription": "Receive transcriptions in a dedicated WhatsApp conversation (you with yourself)",
+      "separateConversationProOnly": "⭐ Pro feature - Keep your conversations clean",
+      "notifications": "Notification preferences",
+      "emailNotifications": "Email notifications",
+      "usageAlerts": "Usage alerts (quota near limit)",
+      "languages": {
+        "auto": "Auto-detect",
+        "fr": "French",
+        "en": "English",
+        "es": "Spanish",
+        "de": "German",
+        "it": "Italian",
+        "pt": "Portuguese",
+        "nl": "Dutch",
+        "pl": "Polish",
+        "ru": "Russian",
+        "ja": "Japanese",
+        "ko": "Korean",
+        "zh": "Chinese"
+      },
+      "proFeatures": "Unlock Pro features",
+      "proFeaturesDescription": "Enhance your experience with these premium features",
+      "proFeature1Title": "Private conversation",
+      "proFeature1Description": "All your transcriptions in a dedicated conversation, without disturbing your chats",
+      "proFeature2Title": "Smart summaries",
+      "proFeature2Description": "Get the essentials in 2-3 sentences or a detailed structured summary",
+      "proFeature3Title": "100 hours/month",
+      "proFeature3Description": "Transcribe up to 100 hours of voice messages each month",
+      "upgradeToPro": "Upgrade to Pro now"
     },
     "transcriptModal": {
       "title": "Transcription details",

@@ -82,16 +82,17 @@ subscriptionSchema.statics.PLANS = {
         price: 0,
         duration: 7,
         limits: {
-            minutesPerMonth: 10, // RÉDUIT pour limiter les pertes
-            summariesPerMonth: 10,
-            maxAudioDuration: 180 // 3 minutes max
+            minutesPerMonth: 30, // 30 minutes pour l'essai gratuit (10 messages de ~3 min)
+            summariesPerMonth: 0, // Pas de résumés en trial
+            maxAudioDuration: 180 // 3 minutes max par message
         },
         features: {
             transcription: true,
-            summary: true,
-            multiLanguage: false,
+            summary: false, // Pas de résumé en trial
+            multiLanguage: false, // Seulement FR et EN
             priority: false,
-            apiAccess: false
+            apiAccess: false,
+            separateConversation: false // Pas de conversation séparée en trial
         }
     },
     basic: {
@@ -108,14 +109,15 @@ subscriptionSchema.statics.PLANS = {
             summary: true,
             multiLanguage: true,
             priority: false,
-            apiAccess: false
+            apiAccess: false,
+            separateConversation: true // Conversation séparée disponible
         },
         // Coût estimé: 300 min * 0.006$ = 1.80$ + résumés ~0.60$ = 2.40$
         // Marge: 9.99$ - 2.40$ = 7.59$ (76% de marge)
     },
     pro: {
         name: 'Pro',
-        price: 29.99,
+        price: 19.99, // Prix ajusté pour meilleure proposition de valeur
         stripePriceId: process.env.STRIPE_PRO_PRICE_ID,
         limits: {
             minutesPerMonth: 1200, // 20 heures
@@ -127,31 +129,34 @@ subscriptionSchema.statics.PLANS = {
             summary: true,
             multiLanguage: true,
             priority: true,
-            apiAccess: false
+            apiAccess: false,
+            separateConversation: true
         },
         // Coût estimé: 1200 min * 0.006$ = 7.20$ + résumés ~2.40$ = 9.60$
-        // Marge: 29.99$ - 9.60$ = 20.39$ (68% de marge)
+        // Marge: 19.99$ - 9.60$ = 10.39$ (52% de marge)
     },
     enterprise: {
         name: 'Enterprise',
-        price: 99.99,
+        price: 49.99, // Prix ajusté pour être plus attractif
         stripePriceId: process.env.STRIPE_ENTERPRISE_PRICE_ID,
         limits: {
             minutesPerMonth: 6000, // 100 heures
             summariesPerMonth: 6000,
-            maxAudioDuration: 3000 // 50 minutes (proche limite 25MB)
+            maxAudioDuration: 3600 // 60 minutes
         },
         features: {
             transcription: true,
             summary: true,
             multiLanguage: true,
             priority: true,
-            apiAccess: true
+            apiAccess: true,
+            separateConversation: true
         },
         // Coût estimé: 6000 min * 0.006$ = 36$ + résumés ~12$ = 48$
-        // Marge: 99.99$ - 48$ = 51.99$ (52% de marge)
+        // Marge: 49.99$ - 48$ = 1.99$ (4% de marge mais volume)
     }
 };
+
 
 // Méthodes d'instance
 subscriptionSchema.methods.isActive = function() {

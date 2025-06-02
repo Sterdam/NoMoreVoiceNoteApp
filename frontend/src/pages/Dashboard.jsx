@@ -7,7 +7,7 @@ import {
   LayoutDashboard, FileText, Settings, CreditCard, LogOut, Search,
   Filter, Download, Trash2, Calendar, Clock, Languages, TrendingUp,
   Mic, MessageSquare, BarChart3, PieChart, Activity, ChevronRight,
-  QrCode, Check, X, Loader2, AlertCircle, Phone, Star, Menu, Moon, Sun
+  QrCode, Check, X, Loader2, AlertCircle, Phone, Star, Menu, Moon, Sun, Zap
 } from 'lucide-react';
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart as RePieChart, 
@@ -25,6 +25,8 @@ import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { LoadingSpinner, LoadingSkeleton } from '../components/ui/LoadingSpinner';
 import { useToast } from '../hooks/useToast';
+import { SummaryLevelSelector } from '../components/SummaryLevelSelector';
+
 
 // Stores
 import { useAuthStore, useTranscriptStore, useThemeStore } from '../stores/useStore';
@@ -75,18 +77,32 @@ export default function Dashboard() {
   const { data: dashboardData, isLoading: loadingDashboard } = useQuery({
     queryKey: ['dashboard'],
     queryFn: async () => {
-      const [status, subscription, profile, stats] = await Promise.all([
+      const [status, subscription, profile, transcripts] = await Promise.all([
         axios.get('/api/users/whatsapp-status'),
         axios.get('/api/payment/subscription'),
         axios.get('/api/users/profile'),
-        axios.get('/api/transcripts/stats')
+        axios.get('/api/transcripts?limit=1000') // Récupérer les transcriptions pour calculer les stats
       ]);
+      
+      // Calculer les stats côté client
+      const stats = {
+        total: transcripts.data.transcripts.length,
+        totalMinutes: transcripts.data.transcripts.reduce((acc, t) => acc + (t.audioLength / 60), 0),
+        languages: transcripts.data.transcripts.reduce((acc, t) => {
+          acc[t.language] = (acc[t.language] || 0) + 1;
+          return acc;
+        }, {}),
+        recent: transcripts.data.transcripts.slice(0, 5),
+        daily: [], // Pour simplifier, on peut laisser vide ou calculer si nécessaire
+        hourly: [] // Idem
+      };
+      
       return {
         whatsappStatus: status.data,
         subscription: subscription.data.subscription,
         usage: subscription.data.usage,
         settings: profile.data.settings,
-        stats: stats.data
+        stats
       };
     }
   });
@@ -700,7 +716,11 @@ export default function Dashboard() {
     </div>
   );
 
-  const renderSettings = () => (
+  // À ajouter dans le fichier Dashboard.jsx, remplacer la fonction renderSettings()
+
+const renderSettings = () => (
+  <div className="space-y-6">
+    {/* Settings Card */}
     <Card>
       <CardHeader>
         <CardTitle>{t('dashboard.settings.title')}</CardTitle>
@@ -729,37 +749,46 @@ export default function Dashboard() {
               }
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900"
             >
+              <option value="auto">{t('dashboard.settings.languages.auto')}</option>
               <option value="fr">{t('dashboard.settings.languages.fr')}</option>
               <option value="en">{t('dashboard.settings.languages.en')}</option>
               <option value="es">{t('dashboard.settings.languages.es')}</option>
               <option value="de">{t('dashboard.settings.languages.de')}</option>
               <option value="it">{t('dashboard.settings.languages.it')}</option>
               <option value="pt">{t('dashboard.settings.languages.pt')}</option>
+              <option value="nl">{t('dashboard.settings.languages.nl')}</option>
+              <option value="pl">{t('dashboard.settings.languages.pl')}</option>
+              <option value="ru">{t('dashboard.settings.languages.ru')}</option>
+              <option value="ja">{t('dashboard.settings.languages.ja')}</option>
+              <option value="ko">{t('dashboard.settings.languages.ko')}</option>
+              <option value="zh">{t('dashboard.settings.languages.zh')}</option>
             </select>
           </div>
 
-          {/* Auto-summarize */}
+          {/* Summary Level Selector */}
           <div>
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={dashboardData?.settings?.autoSummarize || false}
-                onChange={(e) =>
-                  queryClient.setQueryData(['dashboard'], (old) => ({
-                    ...old,
-                    settings: { ...old.settings, autoSummarize: e.target.checked }
-                  }))
-                }
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-              />
-              <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                {t('dashboard.settings.autoSummarize')}
-              </span>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {t('dashboard.settings.summaryLevel')}
             </label>
+            <SummaryLevelSelector
+              value={dashboardData?.settings?.summaryLevel || 'concise'}
+              onChange={(level) =>
+                queryClient.setQueryData(['dashboard'], (old) => ({
+                  ...old,
+                  settings: { ...old.settings, summaryLevel: level }
+                }))
+              }
+              disabled={dashboardData?.subscription?.plan === 'trial'}
+            />
+            {dashboardData?.subscription?.plan === 'trial' && (
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                {t('dashboard.settings.summaryProOnly')}
+              </p>
+            )}
           </div>
 
-          {/* Summary Language */}
-          {dashboardData?.settings?.autoSummarize && (
+          {/* Summary Language - Only if summary is enabled */}
+          {dashboardData?.settings?.summaryLevel !== 'none' && dashboardData?.subscription?.plan !== 'trial' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 {t('dashboard.settings.summaryLanguage')}
@@ -785,6 +814,114 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* Separate Conversation Toggle - Pro only */}
+          <div className="border-t pt-4">
+            <div className="flex items-start">
+              <div className="flex items-center h-5">
+                <input
+                  type="checkbox"
+                  checked={dashboardData?.settings?.separateConversation || false}
+                  onChange={(e) =>
+                    queryClient.setQueryData(['dashboard'], (old) => ({
+                      ...old,
+                      settings: { ...old.settings, separateConversation: e.target.checked }
+                    }))
+                  }
+                  disabled={dashboardData?.subscription?.plan === 'trial'}
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded disabled:opacity-50"
+                />
+              </div>
+              <div className="ml-3">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {t('dashboard.settings.separateConversation')}
+                </label>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {t('dashboard.settings.separateConversationDescription')}
+                </p>
+                {dashboardData?.subscription?.plan === 'trial' && (
+                  <p className="text-sm text-primary-600 dark:text-primary-400 mt-1">
+                    {t('dashboard.settings.separateConversationProOnly')}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Auto-transcribe Toggle */}
+          <div>
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={dashboardData?.settings?.autoTranscribe !== false}
+                onChange={(e) =>
+                  queryClient.setQueryData(['dashboard'], (old) => ({
+                    ...old,
+                    settings: { ...old.settings, autoTranscribe: e.target.checked }
+                  }))
+                }
+                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+              />
+              <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                {t('dashboard.settings.autoTranscribe')}
+              </span>
+            </label>
+          </div>
+
+          {/* Notification Preferences */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              {t('dashboard.settings.notifications')}
+            </h4>
+            <div className="space-y-2">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={dashboardData?.settings?.notificationPreferences?.email !== false}
+                  onChange={(e) =>
+                    queryClient.setQueryData(['dashboard'], (old) => ({
+                      ...old,
+                      settings: {
+                        ...old.settings,
+                        notificationPreferences: {
+                          ...old.settings?.notificationPreferences,
+                          email: e.target.checked
+                        }
+                      }
+                    }))
+                  }
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                />
+                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                  {t('dashboard.settings.emailNotifications')}
+                </span>
+              </label>
+              
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={dashboardData?.settings?.notificationPreferences?.usageAlerts !== false}
+                  onChange={(e) =>
+                    queryClient.setQueryData(['dashboard'], (old) => ({
+                      ...old,
+                      settings: {
+                        ...old.settings,
+                        notificationPreferences: {
+                          ...old.settings?.notificationPreferences,
+                          usageAlerts: e.target.checked
+                        }
+                      }
+                    }))
+                  }
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                />
+                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                  {t('dashboard.settings.usageAlerts')}
+                </span>
+              </label>
+            </div>
+          </div>
+
+          {/* Save Button */}
           <div className="pt-4">
             <Button
               type="submit"
@@ -803,7 +940,78 @@ export default function Dashboard() {
         </form>
       </CardContent>
     </Card>
-  );
+
+    {/* Pro Features Preview */}
+    {dashboardData?.subscription?.plan === 'trial' && (
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('dashboard.settings.proFeatures')}</CardTitle>
+          <CardDescription>{t('dashboard.settings.proFeaturesDescription')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-primary-100 dark:bg-primary-900/20 rounded-lg">
+                <MessageSquare className="h-5 w-5 text-primary-600" />
+              </div>
+              <div>
+                <h4 className="font-medium text-gray-900 dark:text-white">
+                  {t('dashboard.settings.proFeature1Title')}
+                </h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {t('dashboard.settings.proFeature1Description')}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-primary-100 dark:bg-primary-900/20 rounded-lg">
+                <Zap className="h-5 w-5 text-primary-600" />
+              </div>
+              <div>
+                <h4 className="font-medium text-gray-900 dark:text-white">
+                  {t('dashboard.settings.proFeature2Title')}
+                </h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {t('dashboard.settings.proFeature2Description')}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-primary-100 dark:bg-primary-900/20 rounded-lg">
+                <Languages className="h-5 w-5 text-primary-600" />
+              </div>
+              <div>
+                <h4 className="font-medium text-gray-900 dark:text-white">
+                  {t('dashboard.settings.proFeature3Title')}
+                </h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {t('dashboard.settings.proFeature3Description')}
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="mt-6">
+            <Button
+              onClick={async () => {
+                const response = await axios.post('/api/payment/create-checkout-session', {
+                  planId: 'pro'
+                });
+                window.location.href = response.data.url;
+              }}
+              className="w-full"
+            >
+              {t('dashboard.settings.upgradeToPro')}
+              <ChevronRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    )}
+  </div>
+);
 
   if (!user) {
     navigate('/login');

@@ -7,25 +7,93 @@ class SummaryService {
             none: null,
             concise: {
                 systemPrompt: {
-                    fr: "Tu es un assistant qui crée des résumés ultra-concis. Maximum 2-3 phrases courtes. Garde uniquement l'essentiel : QUI, QUOI, QUAND. Sois direct et factuel.",
-                    en: "You are an assistant creating ultra-concise summaries. Maximum 2-3 short sentences. Keep only the essential: WHO, WHAT, WHEN. Be direct and factual."
+                    fr: `Tu es un assistant expert en résumé de messages vocaux. Tu dois créer des résumés ultra-concis en 2-3 phrases maximum. 
+                    
+Règles strictes :
+- Extraire UNIQUEMENT l'information essentielle
+- Format : QUI fait QUOI, QUAND et POURQUOI
+- Utiliser des phrases courtes et directes
+- Pas de détails superflus
+- Si c'est une demande : commencer par "➡️ Demande:"
+- Si c'est une information : commencer par "ℹ️ Info:"
+- Si c'est urgent : ajouter "🚨 URGENT:" au début`,
+                    
+                    en: `You are an expert assistant in voice message summarization. You must create ultra-concise summaries in maximum 2-3 sentences.
+                    
+Strict rules:
+- Extract ONLY essential information
+- Format: WHO does WHAT, WHEN and WHY
+- Use short, direct sentences
+- No superfluous details
+- If it's a request: start with "➡️ Request:"
+- If it's information: start with "ℹ️ Info:"
+- If urgent: add "🚨 URGENT:" at the beginning`
                 },
                 userPrompt: {
-                    fr: "Résume ce message en 2-3 phrases maximum :\n\n",
-                    en: "Summarize this message in maximum 2-3 sentences:\n\n"
+                    fr: "Résume ce message vocal en 2-3 phrases MAXIMUM. Sois extrêmement concis :\n\n",
+                    en: "Summarize this voice message in MAXIMUM 2-3 sentences. Be extremely concise:\n\n"
                 },
                 maxTokens: 100
             },
             detailed: {
                 systemPrompt: {
-                    fr: "Tu es un assistant qui crée des résumés détaillés et structurés. Inclus les points principaux, le contexte, et les détails importants. Structure le résumé avec des points clés. Maximum 5-7 phrases.",
-                    en: "You are an assistant creating detailed and structured summaries. Include main points, context, and important details. Structure the summary with key points. Maximum 5-7 sentences."
+                    fr: `Tu es un assistant expert en résumé structuré de messages vocaux. Tu dois créer des résumés détaillés et bien organisés.
+                    
+Structure obligatoire :
+1. **CONTEXTE** (1 phrase) : De quoi parle le message
+2. **POINTS CLÉS** (3-5 bullets) : Les éléments importants
+3. **ACTIONS** (si applicable) : Ce qui est demandé/à faire
+4. **INFOS IMPORTANTES** : Dates, heures, lieux, contacts mentionnés
+
+Règles :
+- Être factuel et précis
+- Conserver les informations importantes (dates, nombres, noms)
+- Structurer clairement l'information
+- Maximum 7 phrases au total
+- Utiliser des émojis pertinents pour la clarté (📅 pour dates, 📍 pour lieux, etc.)`,
+                    
+                    en: `You are an expert assistant in structured voice message summarization. You must create detailed and well-organized summaries.
+                    
+Mandatory structure:
+1. **CONTEXT** (1 sentence): What the message is about
+2. **KEY POINTS** (3-5 bullets): Important elements
+3. **ACTIONS** (if applicable): What is requested/to do
+4. **IMPORTANT INFO**: Dates, times, locations, contacts mentioned
+
+Rules:
+- Be factual and precise
+- Keep important information (dates, numbers, names)
+- Clearly structure information
+- Maximum 7 sentences total
+- Use relevant emojis for clarity (📅 for dates, 📍 for locations, etc.)`
                 },
                 userPrompt: {
-                    fr: "Crée un résumé détaillé et structuré de ce message :\n\n",
-                    en: "Create a detailed and structured summary of this message:\n\n"
+                    fr: "Crée un résumé détaillé et structuré de ce message vocal. Inclus tous les points importants :\n\n",
+                    en: "Create a detailed and structured summary of this voice message. Include all important points:\n\n"
                 },
-                maxTokens: 250
+                maxTokens: 300
+            }
+        };
+        
+        // Templates pour identifier le type de message
+        this.messagePatterns = {
+            urgent: {
+                keywords: {
+                    fr: ['urgent', 'urgence', 'important', 'critique', 'tout de suite', 'immédiatement', 'asap'],
+                    en: ['urgent', 'emergency', 'important', 'critical', 'right away', 'immediately', 'asap']
+                }
+            },
+            meeting: {
+                keywords: {
+                    fr: ['réunion', 'rendez-vous', 'meeting', 'rencontre', 'appel', 'visio'],
+                    en: ['meeting', 'appointment', 'call', 'conference', 'video call']
+                }
+            },
+            task: {
+                keywords: {
+                    fr: ['faire', 'tâche', 'action', 'besoin', 'demande', 'pourriez-vous', 'peux-tu'],
+                    en: ['do', 'task', 'action', 'need', 'request', 'could you', 'can you']
+                }
             }
         };
     }
@@ -38,6 +106,15 @@ class SummaryService {
 
             const config = this.summaryConfigs[level];
             const lang = ['fr', 'en'].includes(language) ? language : 'fr';
+            
+            // Analyser le type de message
+            const messageType = this.analyzeMessageType(text, lang);
+            
+            // Adapter le prompt selon le type
+            let enhancedUserPrompt = config.userPrompt[lang] + text;
+            if (messageType.isUrgent) {
+                enhancedUserPrompt = "⚠️ MESSAGE URGENT - " + enhancedUserPrompt;
+            }
 
             const response = await OpenAIService.axiosInstance.post(
                 `${OpenAIService.apiUrl}/chat/completions`,
@@ -45,10 +122,12 @@ class SummaryService {
                     model: 'gpt-3.5-turbo',
                     messages: [
                         { role: 'system', content: config.systemPrompt[lang] },
-                        { role: 'user', content: config.userPrompt[lang] + text }
+                        { role: 'user', content: enhancedUserPrompt }
                     ],
                     max_tokens: config.maxTokens,
-                    temperature: 0.7
+                    temperature: 0.3, // Plus déterministe pour des résumés cohérents
+                    presence_penalty: 0.1,
+                    frequency_penalty: 0.1
                 },
                 {
                     headers: {
@@ -58,7 +137,14 @@ class SummaryService {
                 }
             );
 
-            const summary = response.data.choices[0].message.content.trim();
+            let summary = response.data.choices[0].message.content.trim();
+            
+            // Post-traitement selon le niveau
+            if (level === 'concise') {
+                summary = this.postProcessConciseSummary(summary, messageType, lang);
+            } else if (level === 'detailed') {
+                summary = this.postProcessDetailedSummary(summary, messageType, lang);
+            }
             
             // Log pour tracking des coûts
             const tokensUsed = response.data.usage.total_tokens;
@@ -68,7 +154,8 @@ class SummaryService {
                 level,
                 tokensUsed,
                 cost: cost.toFixed(4),
-                language: lang
+                language: lang,
+                messageType: messageType.type
             });
 
             return summary;
@@ -82,23 +169,110 @@ class SummaryService {
             return null;
         }
     }
+    
+    analyzeMessageType(text, language) {
+        const lowerText = text.toLowerCase();
+        let isUrgent = false;
+        let isMeeting = false;
+        let isTask = false;
+        
+        // Vérifier urgence
+        this.messagePatterns.urgent.keywords[language].forEach(keyword => {
+            if (lowerText.includes(keyword)) {
+                isUrgent = true;
+            }
+        });
+        
+        // Vérifier réunion
+        this.messagePatterns.meeting.keywords[language].forEach(keyword => {
+            if (lowerText.includes(keyword)) {
+                isMeeting = true;
+            }
+        });
+        
+        // Vérifier tâche
+        this.messagePatterns.task.keywords[language].forEach(keyword => {
+            if (lowerText.includes(keyword)) {
+                isTask = true;
+            }
+        });
+        
+        let type = 'general';
+        if (isUrgent) type = 'urgent';
+        else if (isMeeting) type = 'meeting';
+        else if (isTask) type = 'task';
+        
+        return {
+            type,
+            isUrgent,
+            isMeeting,
+            isTask
+        };
+    }
+    
+    postProcessConciseSummary(summary, messageType, language) {
+        // S'assurer que le résumé est vraiment concis
+        const sentences = summary.split(/[.!?]+/).filter(s => s.trim().length > 0);
+        if (sentences.length > 3) {
+            summary = sentences.slice(0, 3).join('. ') + '.';
+        }
+        
+        // Ajouter des préfixes si pas déjà présents
+        if (messageType.isUrgent && !summary.includes('🚨')) {
+            summary = '🚨 URGENT: ' + summary;
+        }
+        
+        return summary;
+    }
+    
+    postProcessDetailedSummary(summary, messageType, language) {
+        // S'assurer que la structure est respectée
+        const hasContext = summary.includes('**CONTEXTE**') || summary.includes('**CONTEXT**');
+        const hasKeyPoints = summary.includes('**POINTS CLÉS**') || summary.includes('**KEY POINTS**');
+        
+        if (!hasContext || !hasKeyPoints) {
+            // Reformater si nécessaire
+            const lines = summary.split('\n').filter(l => l.trim().length > 0);
+            let formattedSummary = '';
+            
+            if (language === 'fr') {
+                formattedSummary = `**CONTEXTE**: ${lines[0]}\n\n**POINTS CLÉS**:\n`;
+            } else {
+                formattedSummary = `**CONTEXT**: ${lines[0]}\n\n**KEY POINTS**:\n`;
+            }
+            
+            for (let i = 1; i < lines.length && i < 6; i++) {
+                formattedSummary += `• ${lines[i]}\n`;
+            }
+            
+            return formattedSummary.trim();
+        }
+        
+        return summary;
+    }
 
     getSummaryLevelInfo(level) {
         const info = {
             none: {
                 name: 'Sans résumé',
                 description: 'Transcription uniquement',
-                icon: '📝'
+                icon: '📝',
+                nameEn: 'No summary',
+                descriptionEn: 'Transcription only'
             },
             concise: {
                 name: 'Résumé concis',
                 description: '2-3 phrases essentielles',
-                icon: '📌'
+                icon: '📌',
+                nameEn: 'Concise summary',
+                descriptionEn: '2-3 essential sentences'
             },
             detailed: {
                 name: 'Résumé détaillé',
                 description: '5-7 phrases structurées',
-                icon: '📋'
+                icon: '📋',
+                nameEn: 'Detailed summary',
+                descriptionEn: '5-7 structured sentences'
             }
         };
         return info[level] || info.none;
@@ -108,9 +282,40 @@ class SummaryService {
         const costs = {
             none: 0,
             concise: 0.0002, // ~100 tokens
-            detailed: 0.0005  // ~250 tokens
+            detailed: 0.0006  // ~300 tokens
         };
         return costs[level] || 0;
+    }
+    
+    // Méthode pour obtenir des statistiques sur les résumés
+    async getSummaryStats(userId, period = 30) {
+        try {
+            const Transcript = require('../models/Transcript');
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - period);
+            
+            const stats = await Transcript.aggregate([
+                {
+                    $match: {
+                        userId,
+                        createdAt: { $gte: startDate },
+                        summary: { $exists: true, $ne: null }
+                    }
+                },
+                {
+                    $group: {
+                        _id: '$summaryLevel',
+                        count: { $sum: 1 },
+                        avgLength: { $avg: { $strLen: '$summary' } }
+                    }
+                }
+            ]);
+            
+            return stats;
+        } catch (error) {
+            LogService.error('Error getting summary stats:', error);
+            return [];
+        }
     }
 }
 
