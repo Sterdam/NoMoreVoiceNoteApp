@@ -3,10 +3,10 @@ const router = express.Router();
 const { auth } = require('../middlewares/auth');
 const WhatsAppService = require('../services/WhatsAppService');
 const LogService = require('../services/LogService');
-const { Transcript } = require('../models/Transcript');
+const Transcript = require('../models/Transcript');
 const QueueService = require('../services/QueueService');
-const { Usage } = require('../models/Usage');
-const { Subscription } = require('../models/Subscription');
+const Usage = require('../models/Usage');
+const Subscription = require('../models/Subscription');
 const { transcriptionLimiter } = require('../middlewares/rateLimit');
 const { 
     addLegalDisclaimers, 
@@ -41,7 +41,7 @@ const checkPlanLimits = async (req, res, next) => {
             month: startOfMonth
         });
         
-        const currentUsage = usage?.transcriptionCount || 0;
+        const currentUsage = usage?.transcriptions?.count || 0;
         
         // Limites par plan
         const limits = {

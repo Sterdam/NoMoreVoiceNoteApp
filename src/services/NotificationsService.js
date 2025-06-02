@@ -19,6 +19,9 @@ class NotificationService {
                 html: {
                     fr: (data) => `
                         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <div style="text-align: center; margin-bottom: 20px;">
+                                <img src="${process.env.FRONTEND_URL}/logo.png" alt="VoxKill" style="height: 100px;">
+                            </div>
                             <div style="background-color: #f8f9fa; padding: 20px; border-radius: 10px;">
                                 <h2 style="color: #333;">Attention, votre quota est presque atteint !</h2>
                                 <p>Bonjour ${data.userName},</p>
@@ -37,6 +40,9 @@ class NotificationService {
                     `,
                     en: (data) => `
                         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <div style="text-align: center; margin-bottom: 20px;">
+                                <img src="${process.env.FRONTEND_URL}/logo.png" alt="VoxKill" style="height: 100px;">
+                            </div>
                             <div style="background-color: #f8f9fa; padding: 20px; border-radius: 10px;">
                                 <h2 style="color: #333;">Warning, your quota is almost reached!</h2>
                                 <p>Hello ${data.userName},</p>
@@ -63,6 +69,9 @@ class NotificationService {
                 html: {
                     fr: (data) => `
                         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <div style="text-align: center; margin-bottom: 20px;">
+                                <img src="${process.env.FRONTEND_URL}/logo.png" alt="VoxKill" style="height: 100px;">
+                            </div>
                             <div style="background-color: #f8f9fa; padding: 20px; border-radius: 10px;">
                                 <h2 style="color: #dc3545;">Votre quota mensuel est épuisé</h2>
                                 <p>Bonjour ${data.userName},</p>
@@ -78,6 +87,9 @@ class NotificationService {
                     `,
                     en: (data) => `
                         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <div style="text-align: center; margin-bottom: 20px;">
+                                <img src="${process.env.FRONTEND_URL}/logo.png" alt="VoxKill" style="height: 100px;">
+                            </div>
                             <div style="background-color: #f8f9fa; padding: 20px; border-radius: 10px;">
                                 <h2 style="color: #dc3545;">Your monthly quota is exhausted</h2>
                                 <p>Hello ${data.userName},</p>
@@ -101,6 +113,9 @@ class NotificationService {
                 html: {
                     fr: (data) => `
                         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <div style="text-align: center; margin-bottom: 20px;">
+                                <img src="${process.env.FRONTEND_URL}/logo.png" alt="VoxKill" style="height: 100px;">
+                            </div>
                             <div style="background-color: #f8f9fa; padding: 20px; border-radius: 10px;">
                                 <h1 style="color: #333; text-align: center;">Bienvenue sur VoxKill ! 🎉</h1>
                                 <p>Bonjour ${data.userName},</p>
@@ -125,6 +140,9 @@ class NotificationService {
                     `,
                     en: (data) => `
                         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <div style="text-align: center; margin-bottom: 20px;">
+                                <img src="${process.env.FRONTEND_URL}/logo.png" alt="VoxKill" style="height: 100px;">
+                            </div>
                             <div style="background-color: #f8f9fa; padding: 20px; border-radius: 10px;">
                                 <h1 style="color: #333; text-align: center;">Welcome to VoxKill! 🎉</h1>
                                 <p>Hello ${data.userName},</p>
@@ -154,7 +172,7 @@ class NotificationService {
 
     initializeEmailTransporter() {
         if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-            this.emailTransporter = nodemailer.createTransporter({
+            this.emailTransporter = nodemailer.createTransport({
                 host: process.env.SMTP_HOST,
                 port: process.env.SMTP_PORT || 587,
                 secure: false,

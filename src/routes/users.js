@@ -5,6 +5,7 @@ const { auth, authorize } = require('../middlewares/auth');
 const User = require('../models/User');
 const LogService = require('../services/LogService');
 const WhatsAppService = require('../services/WhatsAppService');
+const NotificationService = require('../services/NotificationsService');
 const { t } = require('../utils/translate');
 const Subscription = require('../models/Subscription');
 
@@ -146,5 +147,36 @@ router.get('/list', auth, authorize(['admin']), async (req, res) => {
         res.status(500).json({ error: t('users.list.fetch_error', req) });
     }
 });
+
+// Route de test pour les notifications (dev only)
+if (process.env.NODE_ENV === 'development') {
+    router.post('/test-notifications', auth, async (req, res) => {
+        try {
+            const { type } = req.body;
+            
+            switch (type) {
+                case 'welcome':
+                    await NotificationService.sendWelcomeEmail(req.user);
+                    break;
+                case 'quota-warning':
+                    await NotificationService.checkAndNotifyQuotaUsage(req.user._id);
+                    break;
+                case 'custom':
+                    await NotificationService.sendCustomNotification(req.user._id, {
+                        email: {
+                            subject: 'Test Email',
+                            html: '<h1>Test Email</h1><p>This is a test.</p>'
+                        },
+                        whatsapp: '🧪 Ceci est un message de test'
+                    });
+                    break;
+            }
+            
+            res.json({ message: 'Notification sent' });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+}
 
 module.exports = router;

@@ -17,6 +17,7 @@ const { apiLimiter } = require('./middlewares/rateLimit');
 const { addLegalHeaders, checkGDPRCompliance, checkExportCompliance } = require('./middlewares/legal');
 const languageMiddleware = require('./middlewares/language');
 const i18n = require('./config/i18n');
+const { setupNotificationJobs } = require('./jobs/notificationJob');
 
 // Import des routes
 const authRoutes = require('./routes/auth');
@@ -150,7 +151,7 @@ const configureApp = () => {
     app.use('/api/legal', legalRoutes);
     
     // Health check routes (sans CSRF)
-    app.use('/', healthRoutes);
+    app.use('/api', healthRoutes);
 
     // Route racine pour servir l'app React en production
     if (process.env.NODE_ENV === 'production') {
@@ -272,6 +273,9 @@ const startServer = async () => {
 ║   ⚡ Performance: Optimized               ║
 ╚═══════════════════════════════════════════╝
             `);
+            
+            // Démarrer les jobs de notification
+            setupNotificationJobs();
         });
 
     } catch (error) {

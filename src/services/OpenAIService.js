@@ -9,7 +9,11 @@ class OpenAIService {
         this.apiUrl = 'https://api.openai.com/v1';
         
         if (!this.apiKey) {
-            throw new Error('OPENAI_API_KEY is required');
+            LogService.error('OPENAI_API_KEY is not configured');
+            if (process.env.NODE_ENV === 'production') {
+                throw new Error('OPENAI_API_KEY is required in production');
+            }
+            LogService.warn('Running without OpenAI API key - transcription will fail');
         }
         
         // Configuration axios avec retry
@@ -99,6 +103,35 @@ class OpenAIService {
         }
         
         throw new Error(`Transcription failed after ${maxRetries} attempts: ${lastError.message}`);
+    }
+
+    async validateApiKey() {
+        try {
+            if (!this.apiKey) {
+                return { valid: false, error: 'No API key configured' };
+            }
+
+            const response = await this.axiosInstance.get(`${this.apiUrl}/models`, {
+                headers: {
+                    'Authorization': `Bearer ${this.apiKey}`
+                },
+                timeout: 10000
+            });
+
+            LogService.info('OpenAI API key validated successfully');
+            return { valid: true, models: response.data.data.length };
+        } catch (error) {
+            LogService.error('OpenAI API key validation failed:', {
+                status: error.response?.status,
+                error: error.response?.data?.error?.message || error.message
+            });
+            
+            return { 
+                valid: false, 
+                error: error.response?.data?.error?.message || error.message,
+                status: error.response?.status
+            };
+        }
     }
 
     async summarize(text, options = {}) {

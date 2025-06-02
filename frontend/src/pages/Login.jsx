@@ -9,6 +9,7 @@ import { useAuthStore } from '../stores/useStore';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { useToast } from '../hooks/useToast';
+import { Logo } from '../components/Logo';
 
 export default function Login() {
   const { t } = useTranslation();
@@ -52,10 +53,7 @@ export default function Login() {
         >
           <div className="text-center">
             <Link to="/" className="inline-flex items-center justify-center mb-8">
-              <Mic className="h-12 w-12 text-primary-600" />
-              <span className="ml-3 text-2xl font-bold text-gray-900 dark:text-white">
-                VoxKill
-              </span>
+              <Logo className="h-32 w-32" />
             </Link>
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
               {t('auth.login.welcomeBack')}

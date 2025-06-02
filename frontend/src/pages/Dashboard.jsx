@@ -26,6 +26,7 @@ import { Modal } from '../components/ui/Modal';
 import { LoadingSpinner, LoadingSkeleton } from '../components/ui/LoadingSpinner';
 import { useToast } from '../hooks/useToast';
 import { SummaryLevelSelector } from '../components/SummaryLevelSelector';
+import { Logo } from '../components/Logo';
 
 
 // Stores
@@ -1043,10 +1044,7 @@ const renderSettings = () => (
             <div className="flex flex-col h-full">
               <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex items-center">
-                  <Mic className="h-8 w-8 text-primary-600" />
-                  <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">
-                    VoxKill
-                  </span>
+                  <Logo size="md" />
                 </div>
                 <button
                   onClick={toggleTheme}

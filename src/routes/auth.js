@@ -3,6 +3,7 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const { auth } = require('../middlewares/auth');
 const LogService = require('../services/LogService');
+const NotificationService = require('../services/NotificationsService');
 const { validate, registrationValidation, loginValidation } = require('../middlewares/validation');
 const { t } = require('../utils/translate');
 
@@ -206,6 +207,11 @@ router.post('/register', validate(registrationValidation), asyncHandler(async (r
                 features: subscription.features
             },
             token
+        });
+
+        // Envoyer l'email de bienvenue (non bloquant)
+        NotificationService.sendWelcomeEmail(user).catch(error => {
+            LogService.error('Failed to send welcome email:', error);
         });
 
     } catch (error) {

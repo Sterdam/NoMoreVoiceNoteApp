@@ -4,7 +4,8 @@ const fs = require('fs/promises');
 const path = require('path');
 const LogService = require('./LogService');
 const OpenAIService = require('./OpenAIService');
-const { Transcript } = require('../models/Transcript');
+const NotificationService = require('./NotificationsService');
+const Transcript = require('../models/Transcript');
 const Subscription = require('../models/Subscription');
 const Usage = require('../models/Usage');
 const { exec } = require('child_process');
@@ -139,19 +140,21 @@ class WhatsAppService {
                     userId,
                     messageId: message.id._serialized,
                     text: transcriptionResult.text,
+                    summary,
                     audioLength: duration,
                     language: transcriptionResult.language,
-                    summary,
-                    summaryLevel: user.settings.summaryLevel,
+                    confidence: transcriptionResult.confidence,
+                    segments: transcriptionResult.segments || [],
                     status: 'completed',
                     metadata: {
-                        senderName,
-                        chatName: chat.name || 'Chat privé',
-                        chatId: chat.id._serialized,
                         originalFilename: filename,
-                        cost: durationMinutes * 0.006,
+                        mimeType: 'audio/ogg',
+                        fileSize: stats.size,
+                        processingTime: 0, // Sera calculé automatiquement
+                        chatId: chat.id._serialized,
                         fromNumber: contact.number,
-                        timestamp: message.timestamp
+                        timestamp: new Date(message.timestamp * 1000),
+                        cost: durationMinutes * 0.006
                     }
                 });
                 
@@ -159,6 +162,9 @@ class WhatsAppService {
                 
                 // Mettre à jour l'utilisation
                 await usage.addTranscription(durationMinutes, durationMinutes * 0.006, transcript._id);
+                
+                // Vérifier et envoyer les notifications de quota
+                await NotificationService.checkAndNotifyQuotaUsage(userId);
                 
                 // Construire la réponse
                 const replyText = this.formatTranscriptionMessage({

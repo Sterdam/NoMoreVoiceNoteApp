@@ -2,11 +2,12 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { 
-  Mic, Clock, Shield, Zap, Check, ChevronRight,
+  Clock, Shield, Zap, Check, ChevronRight,
   Star, Globe, Headphones, BarChart3, Smartphone
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import LanguageSelector from '../components/LanguageSelector';
+import { Logo } from '../components/Logo';
 
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
@@ -23,10 +24,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <Mic className="h-8 w-8 text-primary-600" />
-              <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">
-                VoxKill
-              </span>
+              <Logo size="md" />
             </div>
             <div className="flex items-center gap-4">
               <LanguageSelector />
@@ -430,10 +428,7 @@ export default function Landing() {
           <div className="grid md:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center mb-4">
-                <Mic className="h-8 w-8 text-primary-600" />
-                <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">
-                  VoiceNote Pro
-                </span>
+                <Logo size="md" />
               </div>
               <p className="text-gray-600 dark:text-gray-400">
                 {t('landing.footer.description')}

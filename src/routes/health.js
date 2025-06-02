@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
-const redis = require('../config/redis');
+const { getRedisClient } = require('../config/redis');
+const OpenAIService = require('../services/OpenAIService');
 
 /**
  * Health check endpoint
@@ -16,7 +17,7 @@ router.get('/health', async (req, res) => {
             services: {
                 mongodb: 'checking',
                 redis: 'checking',
-                whisper: 'checking'
+                openai: 'checking'
             }
         };
 
@@ -36,24 +37,31 @@ router.get('/health', async (req, res) => {
 
         // Check Redis
         try {
-            await redis.ping();
-            healthCheck.services.redis = 'healthy';
+            const redisClient = getRedisClient();
+            if (redisClient) {
+                await redisClient.ping();
+                healthCheck.services.redis = 'healthy';
+            } else {
+                healthCheck.services.redis = 'not_configured';
+            }
         } catch (error) {
             healthCheck.services.redis = 'unhealthy';
-            healthCheck.status = 'degraded';
+            if (process.env.NODE_ENV === 'production') {
+                healthCheck.status = 'degraded';
+            }
         }
 
-        // Check Whisper model
+        // Check OpenAI API
         try {
-            const whisperService = require('../services/WhisperService');
-            if (whisperService.isModelLoaded()) {
-                healthCheck.services.whisper = 'healthy';
+            const validation = await OpenAIService.validateApiKey();
+            if (validation.valid) {
+                healthCheck.services.openai = 'healthy';
             } else {
-                healthCheck.services.whisper = 'loading';
+                healthCheck.services.openai = 'invalid_key';
                 healthCheck.status = 'degraded';
             }
         } catch (error) {
-            healthCheck.services.whisper = 'unhealthy';
+            healthCheck.services.openai = 'unhealthy';
             healthCheck.status = 'degraded';
         }
 
@@ -87,7 +95,16 @@ router.get('/health/ready', async (req, res) => {
     try {
         // Check if all critical services are ready
         const isMongoReady = mongoose.connection.readyState === 1;
-        const isRedisReady = await redis.ping().then(() => true).catch(() => false);
+        
+        let isRedisReady = true; // Redis is optional in dev
+        try {
+            const redisClient = getRedisClient();
+            if (redisClient) {
+                await redisClient.ping();
+            }
+        } catch (error) {
+            isRedisReady = process.env.NODE_ENV !== 'production'; // Only required in production
+        }
         
         if (isMongoReady && isRedisReady) {
             res.status(200).json({
