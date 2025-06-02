@@ -2,8 +2,17 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from './Button';
+import { useTranslation } from 'react-i18next';
 
-export class ErrorBoundary extends React.Component {
+// HOC pour utiliser useTranslation avec un composant de classe
+function withTranslation(Component) {
+  return function WrappedComponent(props) {
+    const { t } = useTranslation();
+    return <Component {...props} t={t} />;
+  };
+}
+
+class ErrorBoundaryBase extends React.Component {
   constructor(props) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -70,7 +79,11 @@ export class ErrorBoundary extends React.Component {
   }
 }
 
+export const ErrorBoundary = withTranslation(ErrorBoundaryBase);
+
 export function ErrorFallback({ error, resetErrorBoundary }) {
+  const { t } = useTranslation();
+  
   return (
     <div className="min-h-[400px] flex items-center justify-center p-4">
       <motion.div
@@ -79,10 +92,10 @@ export function ErrorFallback({ error, resetErrorBoundary }) {
         className="text-center"
       >
         <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold mb-2">Une erreur s'est produite</h3>
-        <p className="text-gray-600 dark:text-gray-400 mb-4">{error?.message || 'Erreur inconnue'}</p>
+        <h3 className="text-lg font-semibold mb-2">{t('errors.occurred')}</h3>
+        <p className="text-gray-600 dark:text-gray-400 mb-4">{error?.message || t('errors.unknown')}</p>
         <Button onClick={resetErrorBoundary} size="sm">
-          Réessayer
+          {t('errors.retry')}
         </Button>
       </motion.div>
     </div>

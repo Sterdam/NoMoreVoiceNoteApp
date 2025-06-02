@@ -1,0 +1,482 @@
+{
+  "common": {
+    "close": "Close",
+    "save": "Save",
+    "cancel": "Cancel",
+    "back": "Back",
+    "copy": "Copy",
+    "copyText": "Copy text",
+    "view": "View",
+    "export": "Export",
+    "search": "Search...",
+    "refresh": "Refresh",
+    "retry": "Retry",
+    "loading": "Loading...",
+    "saving": "Saving...",
+    "creating": "Creating...",
+    "connecting": "Connecting...",
+    "disconnect": "Disconnect",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "free": "Free",
+    "perMonth": "per month",
+    "forever": "forever",
+    "popular": "Most popular",
+    "recommended": "Recommended",
+    "start": "Start",
+    "contact": "Contact",
+    "choose": "Choose this plan",
+    "current": "Current plan",
+    "minutes": "minutes",
+    "seconds": "seconds",
+    "daysRemaining": "days remaining",
+    "transcriptions": "transcriptions",
+    "summaries": "summaries",
+    "remaining": "remaining of",
+    "of": "of",
+    "plan": "Plan",
+    "logout": "Logout"
+  },
+  "nav": {
+    "login": "Login",
+    "register": "Start for free",
+    "dashboard": "Dashboard",
+    "transcriptions": "Transcriptions",
+    "whatsapp": "WhatsApp",
+    "subscription": "Subscription",
+    "settings": "Settings"
+  },
+  "landing": {
+    "hero": {
+      "title": "Transform your voice notes",
+      "whatsapp": "WhatsApp",
+      "intoText": "into text",
+      "description": "No more listening to long voice notes. Our AI instantly transcribes your WhatsApp messages with exceptional accuracy.",
+      "tryFree": "Try for free",
+      "seeDemo": "See demo",
+      "benefits": "✓ 10 free transcriptions • ✓ No credit card required",
+      "demoText": "Hi! I wanted to tell you that tomorrow's meeting is postponed to 3pm. Don't forget to bring the documents..."
+    },
+    "features": {
+      "title": "Why choose VoiceNote Pro?",
+      "subtitle": "Powerful features to simplify your daily life",
+      "instant": {
+        "title": "Instant transcription",
+        "description": "Receive your transcriptions in seconds, directly in WhatsApp."
+      },
+      "multilingual": {
+        "title": "Multilingual support",
+        "description": "Accurate transcription in French, English, Spanish and over 50 languages."
+      },
+      "security": {
+        "title": "Maximum security",
+        "description": "Your data is encrypted and deleted after processing. Privacy guaranteed."
+      },
+      "simple": {
+        "title": "Simple to use",
+        "description": "Simply send your voice notes to our WhatsApp bot. That's it!"
+      },
+      "dashboard": {
+        "title": "Dashboard",
+        "description": "Track your usage and access your transcription history."
+      },
+      "timeSaving": {
+        "title": "Time saving",
+        "description": "No need to listen to 10-minute messages. Read in 30 seconds."
+      }
+    },
+    "pricing": {
+      "title": "Simple and transparent pricing",
+      "subtitle": "Start for free, scale as you grow",
+      "free": {
+        "title": "Free",
+        "price": "$0",
+        "features": {
+          "transcriptions": "10 transcriptions per month",
+          "duration": "Messages up to 5 minutes",
+          "languages": "French and English",
+          "history": "7-day history"
+        }
+      },
+      "pro": {
+        "title": "Pro",
+        "price": "$9.99",
+        "trial": "7-day free trial",
+        "features": {
+          "transcriptions": "500 transcriptions per month",
+          "duration": "Messages up to 30 minutes",
+          "languages": "All languages",
+          "history": "Unlimited history",
+          "export": "PDF/TXT export",
+          "support": "Priority support"
+        }
+      },
+      "business": {
+        "title": "Business",
+        "price": "$29.99",
+        "features": {
+          "transcriptions": "Unlimited transcriptions",
+          "duration": "No duration limit",
+          "api": "Dedicated API",
+          "accounts": "Multiple accounts",
+          "billing": "Enterprise billing",
+          "support": "24/7 support"
+        }
+      }
+    },
+    "testimonials": {
+      "title": "They trust us",
+      "subtitle": "Discover what our users say about us",
+      "testimonial1": {
+        "name": "Marie Laurent",
+        "role": "Project Manager",
+        "text": "Incredible time saver! I can finally manage my colleagues' voice notes without spending hours on them."
+      },
+      "testimonial2": {
+        "name": "Thomas Dubois",
+        "role": "Entrepreneur",
+        "text": "The transcription is remarkably accurate. The perfect tool to never miss anything important."
+      },
+      "testimonial3": {
+        "name": "Sophie Martin",
+        "role": "Consultant",
+        "text": "Simple, efficient and secure. I recommend it to anyone who receives a lot of voice notes."
+      }
+    },
+    "cta": {
+      "title": "Ready to simplify your daily life?",
+      "subtitle": "Join thousands of users who save time every day",
+      "button": "Start for free",
+      "benefits": "10 free transcriptions • No commitment"
+    },
+    "footer": {
+      "description": "The simplest and most efficient WhatsApp transcription solution.",
+      "product": {
+        "title": "Product",
+        "features": "Features",
+        "pricing": "Pricing",
+        "api": "API"
+      },
+      "support": {
+        "title": "Support",
+        "help": "Help Center",
+        "contact": "Contact",
+        "faq": "FAQ"
+      },
+      "legal": {
+        "title": "Legal",
+        "privacy": "Privacy",
+        "terms": "Terms",
+        "gdpr": "GDPR"
+      },
+      "copyright": "© 2024 VoiceNote Pro. All rights reserved."
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Welcome back!",
+      "subtitle": "Log in to access your transcriptions",
+      "email": "Email",
+      "emailPlaceholder": "you@example.com",
+      "password": "Password",
+      "rememberMe": "Remember me",
+      "forgotPassword": "Forgot password?",
+      "submit": "Log in",
+      "submitting": "Logging in...",
+      "newUser": "New to VoxKill?",
+      "createAccount": "Create a free account",
+      "success": "Login successful!",
+      "error": "Login error",
+      "benefits": {
+        "title": "Transform your voice notes into text",
+        "subtitle": "Fast and accurate transcription of your WhatsApp messages with our advanced AI.",
+        "languages": "Over 50 languages supported",
+        "security": "Security and privacy guaranteed",
+        "summaries": "Smart summaries included"
+      }
+    },
+    "register": {
+      "title": "Create your free account",
+      "subtitle": "Start transcribing your voice notes in seconds",
+      "welcomeTitle": "Start for free",
+      "welcomeSubtitle": "Create your account and immediately enjoy all the benefits of VoxKill.",
+      "email": "Email address",
+      "emailPlaceholder": "you@example.com",
+      "whatsapp": "WhatsApp number",
+      "whatsappPlaceholder": "+1 555 123 4567",
+      "whatsappHelp": "International format with country code",
+      "password": "Password",
+      "terms": {
+        "accept": "I accept the",
+        "conditions": "terms of service",
+        "and": "and the",
+        "privacy": "privacy policy"
+      },
+      "submit": "Create my free account",
+      "submitting": "Creating account...",
+      "alreadyAccount": "Already have an account?",
+      "login": "Log in",
+      "success": "Account created successfully!",
+      "error": "Registration error",
+      "stats": {
+        "users": "Over 10,000 users already",
+        "rating": "4.9/5 from 1,234 reviews"
+      },
+      "benefits": [
+        "10 free transcriptions per month",
+        "Multilingual support (50+ languages)",
+        "Security and privacy guaranteed",
+        "No credit card required"
+      ]
+    },
+    "validation": {
+      "emailRequired": "Email required",
+      "emailInvalid": "Invalid email",
+      "passwordRequired": "Password required",
+      "passwordMin": "Minimum 6 characters",
+      "passwordComplex": "Must contain uppercase, lowercase and number",
+      "whatsappRequired": "WhatsApp number required",
+      "whatsappInvalid": "Invalid format (e.g. +1234567890)",
+      "termsRequired": "You must accept the terms"
+    }
+  },
+  "dashboard": {
+    "overview": {
+      "title": "Dashboard",
+      "stats": {
+        "totalTranscriptions": "Total transcriptions",
+        "minutesTranscribed": "Minutes transcribed",
+        "languagesDetected": "Languages detected",
+        "whatsappStatus": "WhatsApp status"
+      },
+      "charts": {
+        "dailyActivity": "Daily activity",
+        "dailyActivitySubtitle": "Number of transcriptions per day",
+        "languagesChart": "Languages detected",
+        "languagesChartSubtitle": "Distribution by language"
+      },
+      "recentTranscriptions": {
+        "title": "Recent transcriptions",
+        "subtitle": "Your last 5 transcriptions"
+      }
+    },
+    "transcriptions": {
+      "title": "Transcriptions",
+      "searchPlaceholder": "Search...",
+      "filterDates": {
+        "all": "All dates",
+        "today": "Today",
+        "week": "This week",
+        "month": "This month"
+      },
+      "summary": "Summary",
+      "noTranscriptions": "No transcriptions found",
+      "deleted": "Transcription deleted",
+      "copied": "Transcription copied"
+    },
+    "whatsapp": {
+      "title": "WhatsApp Connection",
+      "connected": "Your WhatsApp account is connected",
+      "notConnected": "Scan the QR code to connect your account",
+      "connectedMessage": "WhatsApp is connected and ready to receive your voice notes!",
+      "disconnectButton": "Disconnect WhatsApp",
+      "disconnected": "Disconnected from WhatsApp",
+      "instructions": [
+        "1. Open WhatsApp on your phone",
+        "2. Go to Settings → Linked devices",
+        "3. Scan this QR code"
+      ]
+    },
+    "subscription": {
+      "title": "Current plan",
+      "subtitle": "Manage your subscription and usage",
+      "manageButton": "Manage subscription",
+      "usage": {
+        "minutes": "Minutes used",
+        "minutesRemaining": "minutes remaining of",
+        "summaries": "Summaries used",
+        "summariesRemaining": "summaries remaining of"
+      },
+      "features": {
+        "transcriptionHours": "hours of transcription",
+        "summaries": "summaries",
+        "audioDuration": "Audio up to",
+        "min": "min",
+        "multilingual": "Multi-language",
+        "priorityProcessing": "Priority processing"
+      },
+      "paymentSuccess": "Payment successful! Your subscription is now active.",
+      "paymentCancelled": "Payment cancelled."
+    },
+    "settings": {
+      "title": "Settings",
+      "subtitle": "Customize your experience",
+      "defaultLanguage": "Default transcription language",
+      "autoSummary": "Automatically summarize voice messages",
+      "summaryLanguage": "Summary language",
+      "summaryLanguageSame": "Same language as transcription",
+      "saveButton": "Save settings",
+      "saved": "Settings saved"
+    },
+    "transcriptModal": {
+      "title": "Transcription details",
+      "info": "Information",
+      "number": "Number:",
+      "date": "Date:",
+      "duration": "Duration:",
+      "language": "Language:",
+      "transcription": "Transcription",
+      "summary": "Summary"
+    }
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "lastUpdate": "Last updated: June 1, 2025",
+    "sections": {
+      "dataCollection": {
+        "title": "1. Data Collection",
+        "intro": "We collect the following information:",
+        "account": "Account information: Email, WhatsApp number",
+        "transcription": "Transcription data: Voice messages and their transcriptions",
+        "usage": "Usage data: Connection logs, usage statistics",
+        "payment": "Payment data: Processed by Stripe (we do not store your banking information)"
+      },
+      "dataUsage": {
+        "title": "2. Data Usage",
+        "intro": "We use your data to:",
+        "items": [
+          "Provide the transcription service",
+          "Improve service quality",
+          "Communicate with you regarding your account",
+          "Ensure service security"
+        ]
+      },
+      "storage": {
+        "title": "3. Storage and Security",
+        "content": "Your data is stored securely with encryption. Voice messages are deleted after transcription. Transcriptions are kept for your history but can be deleted at any time from your dashboard."
+      },
+      "sharing": {
+        "title": "4. Data Sharing",
+        "intro": "We never sell your personal data. We share your data only with:",
+        "openai": "OpenAI: For transcription (audio only, temporarily)",
+        "stripe": "Stripe: For payment processing",
+        "authorities": "Authorities: If required by law"
+      },
+      "rights": {
+        "title": "5. Your Rights",
+        "intro": "You have the right to:",
+        "items": [
+          "Access your personal data",
+          "Correct your data",
+          "Delete your account and all your data",
+          "Export your data",
+          "Object to processing"
+        ]
+      },
+      "cookies": {
+        "title": "6. Cookies",
+        "content": "We use essential cookies for service operation (authentication). These cookies are necessary and cannot be disabled."
+      },
+      "minors": {
+        "title": "7. Protection of Minors",
+        "content": "Our service is not intended for persons under 16 years of age. We do not knowingly collect data from minors."
+      },
+      "changes": {
+        "title": "8. Changes",
+        "content": "We may update this privacy policy. You will be notified of any significant changes by email."
+      },
+      "contact": {
+        "title": "9. Contact",
+        "intro": "For any questions regarding your personal data:",
+        "email": "privacy@voxkill.com"
+      },
+      "legal": {
+        "title": "10. Legal Basis",
+        "intro": "The processing of your data is based on:",
+        "items": [
+          "Your consent",
+          "Performance of the service contract",
+          "Our legitimate interests (security, service improvement)"
+        ]
+      }
+    }
+  },
+  "terms": {
+    "title": "Terms of Service",
+    "lastUpdate": "Last updated: June 1, 2025",
+    "sections": {
+      "acceptance": {
+        "title": "1. Acceptance of Terms",
+        "content": "By using VoxKill, you accept these terms of service. If you do not accept these terms, please do not use our service."
+      },
+      "service": {
+        "title": "2. Service Description",
+        "content": "VoxKill is an automatic transcription service for WhatsApp voice messages using artificial intelligence. The service converts your audio messages into text."
+      },
+      "acceptable": {
+        "title": "3. Acceptable Use",
+        "intro": "You agree to:",
+        "items": [
+          "Use the service legally and ethically",
+          "Not transcribe illegal or copyrighted content without authorization",
+          "Respect others' privacy",
+          "Not use the service for fraudulent activities"
+        ]
+      },
+      "account": {
+        "title": "4. User Account",
+        "content": "You are responsible for maintaining the confidentiality of your account and password. You agree to be responsible for all activities that occur under your account."
+      },
+      "intellectual": {
+        "title": "5. Intellectual Property",
+        "content": "The content you transcribe remains your property. VoxKill does not acquire any rights to your content. You grant us only a limited license to process your audio files for transcription purposes."
+      },
+      "liability": {
+        "title": "6. Limitation of Liability",
+        "content": "VoxKill is provided \"as is\". We do not guarantee perfect accuracy of transcriptions. The service may contain errors and we are not responsible for damages resulting from use of the service."
+      },
+      "pricing": {
+        "title": "7. Pricing and Payment",
+        "content": "Prices are listed on our site. Subscriptions renew automatically unless cancelled. You can cancel at any time from your dashboard."
+      },
+      "privacy": {
+        "title": "8. Privacy",
+        "intro": "Your use of the service is also governed by our",
+        "link": "Privacy Policy"
+      },
+      "changes": {
+        "title": "9. Changes",
+        "content": "We reserve the right to modify these terms at any time. Changes take effect upon publication."
+      },
+      "contact": {
+        "title": "10. Contact",
+        "intro": "For any questions regarding these terms, contact us at:",
+        "email": "legal@voxkill.com"
+      }
+    }
+  },
+  "summaryLevels": {
+    "none": {
+      "title": "No summary",
+      "description": "Transcription only"
+    },
+    "concise": {
+      "title": "Concise summary",
+      "description": "2-3 essential sentences"
+    },
+    "detailed": {
+      "title": "Detailed summary",
+      "description": "5-7 structured sentences"
+    }
+  },
+  "errors": {
+    "title": "Oops! An error occurred",
+    "subtitle": "Something went wrong. Please refresh the page.",
+    "genericTitle": "An error occurred",
+    "unknown": "Unknown error"
+  },
+  "languages": {
+    "fr": "Français",
+    "en": "English"
+  }
+}

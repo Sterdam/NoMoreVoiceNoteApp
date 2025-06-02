@@ -2,6 +2,7 @@
 const { validationResult, body, param, query } = require('express-validator');
 const LogService = require('../services/LogService');
 const User = require('../models/User'); // Import au début pour éviter les problèmes
+const { t } = require('../utils/translate');
 
 const validate = (validations) => {
     return async (req, res, next) => {
@@ -38,7 +39,7 @@ const validate = (validations) => {
                 path: req.path
             });
             return res.status(500).json({
-                error: 'Erreur lors de la validation'
+                error: t('errors.validationError', req)
             });
         }
     };
@@ -49,70 +50,70 @@ const registrationValidation = [
     body('email')
         .trim()
         .isEmail()
-        .withMessage('Email invalide')
+        .withMessage((value, { req }) => t('errors.invalidEmail', req))
         .normalizeEmail()
         .custom(async (email) => {
             try {
                 const existingUser = await User.findOne({ email: email.toLowerCase() });
                 if (existingUser) {
-                    throw new Error('Cet email est déjà utilisé');
+                    throw new Error(t('errors.emailAlreadyUsed', req));
                 }
                 return true;
             } catch (error) {
-                if (error.message === 'Cet email est déjà utilisé') {
+                if (error.message === t('errors.emailAlreadyUsed', req)) {
                     throw error;
                 }
                 LogService.error('Erreur lors de la vérification email:', {
                     error: error.message,
                     email
                 });
-                throw new Error('Erreur lors de la vérification de l\'email');
+                throw new Error(t('errors.emailVerificationError', req));
             }
         }),
     body('password')
         .isLength({ min: 8 })
-        .withMessage('Le mot de passe doit contenir au moins 8 caractères'),
+        .withMessage((value, { req }) => t('errors.passwordMinLength', req)),
     body('whatsappNumber')
         .trim()
         .notEmpty()
-        .withMessage('Numéro WhatsApp requis')
+        .withMessage((value, { req }) => t('errors.whatsappRequired', req))
         .matches(/^\+?[1-9]\d{1,14}$/)
-        .withMessage('Numéro WhatsApp invalide (ex: +33612345678)')
+        .withMessage((value, { req }) => t('errors.invalidWhatsappNumber', req))
         .custom(async (number) => {
             try {
                 const existingUser = await User.findOne({ whatsappNumber: number });
                 if (existingUser) {
-                    throw new Error('Ce numéro WhatsApp est déjà utilisé');
+                    throw new Error(t('errors.whatsappAlreadyUsed', req));
                 }
                 return true;
             } catch (error) {
-                if (error.message === 'Ce numéro WhatsApp est déjà utilisé') {
+                if (error.message === t('errors.whatsappAlreadyUsed', req)) {
                     throw error;
                 }
                 LogService.error('Erreur lors de la vérification WhatsApp:', {
                     error: error.message,
                     number
                 });
-                throw new Error('Erreur lors de la vérification du numéro WhatsApp');
+                throw new Error(t('errors.whatsappVerificationError', req));
             }
         }),
     body('terms')
         .optional()
         .isBoolean()
-        .withMessage('Vous devez accepter les conditions')
+        .withMessage((value, { req }) => t('errors.termsAcceptanceRequired', req))
         .equals('true')
-        .withMessage('Vous devez accepter les conditions d\'utilisation')
+        .withMessage((value, { req }) => t('errors.termsAcceptanceRequired', req))
 ];
 
 const loginValidation = [
     body('email')
         .trim()
         .isEmail()
-        .withMessage('Email invalide')
+        .withMessage((value, { req }) => t('errors.invalidEmail', req))
         .normalizeEmail(),
     body('password')
         .notEmpty()
-        .withMessage('Mot de passe requis')
+        .withMessage((value, { req }) => t('errors.passwordRequired', req))
 ];
 
 module.exports = {

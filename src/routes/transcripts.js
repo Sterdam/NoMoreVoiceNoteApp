@@ -14,6 +14,7 @@ const {
     validateContentCompliance, 
     auditLog 
 } = require('../middlewares/legal');
+const { t } = require('../utils/translate');
 
 // Important : les routes spécifiques doivent être AVANT les routes avec paramètres
 
@@ -52,7 +53,7 @@ const checkPlanLimits = async (req, res, next) => {
         
         if (currentUsage >= limits[plan]) {
             return res.status(429).json({ 
-                error: 'Limite mensuelle de transcriptions atteinte',
+                error: t('transcripts.limits.monthly_limit_reached', req),
                 limit: limits[plan],
                 current: currentUsage,
                 plan
@@ -72,7 +73,7 @@ const checkPlanLimits = async (req, res, next) => {
 router.get('/whatsapp-qr', auth, async (req, res) => {
     try {
         if (!req.user || !req.user._id) {
-            return res.status(401).json({ error: 'Utilisateur non authentifié' });
+            return res.status(401).json({ error: t('auth.user_not_authenticated', req) });
         }
 
         const userId = req.user._id.toString();
@@ -89,7 +90,7 @@ router.get('/whatsapp-qr', auth, async (req, res) => {
         if (!qr) {
             return res.status(202).json({
                 status: 'pending',
-                message: 'QR code en cours de génération'
+                message: t('transcripts.whatsapp.qr_generating', req)
             });
         }
 
@@ -101,7 +102,7 @@ router.get('/whatsapp-qr', auth, async (req, res) => {
             stack: error.stack
         });
         res.status(500).json({
-            error: 'Erreur lors de la génération du QR code',
+            error: t('transcripts.whatsapp.qr_generation_error', req),
             details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
@@ -117,7 +118,7 @@ router.get('/whatsapp-status', auth, async (req, res) => {
             userId: req.user._id,
             error: error.message
         });
-        res.status(500).json({ error: 'Erreur lors de la vérification du statut WhatsApp' });
+        res.status(500).json({ error: t('transcripts.whatsapp.status_check_error', req) });
     }
 });
 
@@ -135,7 +136,7 @@ router.post('/transcribe',
         const { filePath, language = 'auto', autoSummarize = false, messageId } = req.body;
         
         if (!filePath) {
-            return res.status(400).json({ error: 'Chemin du fichier manquant' });
+            return res.status(400).json({ error: t('transcripts.errors.missing_file_path', req) });
         }
         
         // Ajouter le job à la queue
@@ -164,7 +165,7 @@ router.post('/transcribe',
         );
         
         res.status(202).json({
-            message: 'Transcription en cours de traitement',
+            message: t('transcripts.transcription.processing', req),
             jobId: jobInfo.id,
             queue: jobInfo.queue,
             status: jobInfo.status
@@ -176,7 +177,7 @@ router.post('/transcribe',
             error: error.message 
         });
         res.status(500).json({ 
-            error: 'Erreur lors du lancement de la transcription',
+            error: t('transcripts.errors.transcription_start_error', req),
             details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
@@ -188,12 +189,12 @@ router.get('/job/:jobId', auth, async (req, res) => {
         const jobStatus = await QueueService.getJobStatus(req.params.jobId);
         
         if (!jobStatus) {
-            return res.status(404).json({ error: 'Job non trouvé' });
+            return res.status(404).json({ error: t('transcripts.errors.job_not_found', req) });
         }
         
         // Vérifier que le job appartient à l'utilisateur
         if (jobStatus.data.userId !== req.user._id.toString()) {
-            return res.status(403).json({ error: 'Accès non autorisé' });
+            return res.status(403).json({ error: t('auth.unauthorized_access', req) });
         }
         
         res.json(jobStatus);
@@ -202,7 +203,7 @@ router.get('/job/:jobId', auth, async (req, res) => {
             jobId: req.params.jobId, 
             error: error.message 
         });
-        res.status(500).json({ error: 'Erreur lors de la récupération du statut' });
+        res.status(500).json({ error: t('transcripts.errors.status_fetch_error', req) });
     }
 });
 
@@ -211,14 +212,14 @@ router.get('/queue/metrics', auth, async (req, res) => {
     try {
         // Vérifier les droits admin
         if (!req.user.isAdmin) {
-            return res.status(403).json({ error: 'Accès réservé aux administrateurs' });
+            return res.status(403).json({ error: t('auth.admin_only', req) });
         }
         
         const metrics = await QueueService.getQueueMetrics();
         res.json(metrics);
     } catch (error) {
         LogService.error('Error getting queue metrics:', error);
-        res.status(500).json({ error: 'Erreur lors de la récupération des métriques' });
+        res.status(500).json({ error: t('transcripts.errors.metrics_fetch_error', req) });
     }
 });
 
@@ -255,7 +256,7 @@ router.get('/', auth, async (req, res) => {
             userId: req.user._id, 
             error: error.message 
         });
-        res.status(500).json({ error: 'Erreur lors de la récupération des transcriptions' });
+        res.status(500).json({ error: t('transcripts.errors.fetch_error', req) });
     }
 });
 
@@ -268,17 +269,17 @@ router.delete('/:id', auth, async (req, res) => {
         });
 
         if (!transcript) {
-            return res.status(404).json({ error: 'Transcription non trouvée' });
+            return res.status(404).json({ error: t('transcripts.errors.not_found', req) });
         }
 
-        res.json({ message: 'Transcription supprimée avec succès' });
+        res.json({ message: t('transcripts.delete.success', req) });
     } catch (error) {
         LogService.error('Error deleting transcript:', {
             userId: req.user._id,
             transcriptId: req.params.id,
             error: error.message
         });
-        res.status(500).json({ error: 'Erreur lors de la suppression de la transcription' });
+        res.status(500).json({ error: t('transcripts.errors.delete_error', req) });
     }
 });
 
@@ -292,7 +293,7 @@ router.get('/:id', auth, async (req, res) => {
         });
 
         if (!transcript) {
-            return res.status(404).json({ error: 'Transcription non trouvée' });
+            return res.status(404).json({ error: t('transcripts.errors.not_found', req) });
         }
 
         res.json(transcript);
@@ -302,7 +303,7 @@ router.get('/:id', auth, async (req, res) => {
             transcriptId: req.params.id,
             error: error.message
         });
-        res.status(500).json({ error: 'Erreur lors de la récupération de la transcription' });
+        res.status(500).json({ error: t('transcripts.errors.fetch_single_error', req) });
     }
 });
 

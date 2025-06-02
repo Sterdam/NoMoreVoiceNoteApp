@@ -2,13 +2,14 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const LogService = require('../services/LogService');
+const { t } = require('../utils/translate');
 
 const auth = async (req, res, next) => {
     try {
         const token = req.cookies.token || req.header('Authorization')?.replace('Bearer ', '');
         
         if (!token) {
-            throw new Error('Authentication required');
+            throw new Error(t('errors.authenticationRequired', req));
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
@@ -18,7 +19,7 @@ const auth = async (req, res, next) => {
         });
 
         if (!user) {
-            throw new Error('User not found or inactive');
+            throw new Error(t('errors.userNotFoundOrInactive', req));
         }
 
         user.lastLogin = new Date();
@@ -29,14 +30,14 @@ const auth = async (req, res, next) => {
         next();
     } catch (error) {
         LogService.warn('Authentication failed:', { error: error.message });
-        res.status(401).json({ error: 'Please authenticate.' });
+        res.status(401).json({ error: t('errors.pleaseAuthenticate', req) });
     }
 };
 
 const authorize = (roles = []) => {
     return (req, res, next) => {
         if (!req.user) {
-            return res.status(401).json({ error: 'Authentication required' });
+            return res.status(401).json({ error: t('errors.authenticationRequired', req) });
         }
 
         if (roles.length && !roles.includes(req.user.role)) {
@@ -45,7 +46,7 @@ const authorize = (roles = []) => {
                 requiredRoles: roles,
                 userRole: req.user.role 
             });
-            return res.status(403).json({ error: 'Insufficient permissions' });
+            return res.status(403).json({ error: t('errors.insufficientPermissions', req) });
         }
 
         next();

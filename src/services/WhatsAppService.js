@@ -13,6 +13,7 @@ const execAsync = promisify(exec);
 const fsSync = require('fs');
 const { getRedisClient } = require('../config/redis');
 const QueueService = require('./QueueService');
+const { t } = require('../utils/translate');
 
 class WhatsAppService {
     constructor() {
@@ -47,12 +48,12 @@ class WhatsAppService {
         }
     }
 
-    async handleVoiceMessage(message, userId) {
+    async handleVoiceMessage(message, userId, req) {
         try {
             // Vérifier l'abonnement et les limites
             const subscription = await Subscription.findOne({ userId });
             if (!subscription || !subscription.isActive()) {
-                await message.reply('❌ Votre abonnement a expiré. Renouvelez sur voxkill.com/dashboard');
+                await message.reply(t('whatsapp.subscription_expired', req));
                 return;
             }
     
@@ -78,7 +79,7 @@ class WhatsAppService {
             const fileSizeMB = stats.size / (1024 * 1024);
             
             if (fileSizeMB > 25) {
-                await message.reply('❌ Fichier trop volumineux (max 25MB)');
+                await message.reply(t('whatsapp.file_too_large', req));
                 await this.cleanupTempFiles(filename);
                 return;
             }
@@ -88,7 +89,7 @@ class WhatsAppService {
             
             if (duration > subscription.limits.maxAudioDuration) {
                 const maxMinutes = subscription.limits.maxAudioDuration / 60;
-                await message.reply(`❌ Audio trop long (max ${maxMinutes} min). Passez au plan supérieur.`);
+                await message.reply(t('whatsapp.audio_too_long', req, { maxMinutes }));
                 await this.cleanupTempFiles(filename);
                 return;
             }
@@ -96,13 +97,13 @@ class WhatsAppService {
             // Vérifier le quota
             const remainingMinutes = await usage.getRemainingMinutes();
             if (remainingMinutes < durationMinutes) {
-                await message.reply(`❌ Quota dépassé. Il reste ${remainingMinutes.toFixed(1)} min.`);
+                await message.reply(t('whatsapp.quota_exceeded', req, { remainingMinutes: remainingMinutes.toFixed(1) }));
                 await this.cleanupTempFiles(filename);
                 return;
             }
             
             // Message de traitement en cours
-            const processingMsg = await message.reply('🎤 Transcription en cours...');
+            const processingMsg = await message.reply(t('whatsapp.transcription_in_progress', req));
             
             try {
                 // Convertir et transcrire
@@ -182,7 +183,7 @@ class WhatsAppService {
                 
             } catch (transcriptionError) {
                 LogService.error('Transcription error:', transcriptionError);
-                await message.reply('❌ Erreur lors de la transcription. Support: support@voxkill.com');
+                await message.reply(t('whatsapp.transcription_error', req));
                 throw transcriptionError;
             } finally {
                 await this.cleanupTempFiles(filename);
@@ -362,7 +363,10 @@ class WhatsAppService {
             client.on('message', async (message) => {
                 try {
                     if (message.hasMedia && message.type === 'ptt') {
-                        await this.handleVoiceMessage(message, userId);
+                        // Create a mock req object with user language
+                        const user = await this.getUserById(userId);
+                        const req = { user: { language: user?.settings?.language || 'fr' } };
+                        await this.handleVoiceMessage(message, userId, req);
                     }
                 } catch (error) {
                     LogService.error('Message handling error:', error);

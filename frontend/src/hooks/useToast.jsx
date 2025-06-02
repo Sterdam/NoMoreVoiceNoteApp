@@ -1,5 +1,6 @@
 import toast from 'react-hot-toast';
 import { CheckCircle, XCircle, AlertCircle, Info } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const toastStyles = {
   success: {
@@ -21,6 +22,8 @@ const toastStyles = {
 };
 
 export const useToast = () => {
+  const { t: translate } = useTranslation();
+  
   const showToast = (message, type = 'info') => {
     const style = toastStyles[type] || toastStyles.info;
     
@@ -42,7 +45,7 @@ export const useToast = () => {
               onClick={() => toast.dismiss(t.id)}
               className="inline-flex text-gray-400 hover:text-gray-500 focus:outline-none"
             >
-              <span className="sr-only">Close</span>
+              <span className="sr-only">{translate('common.close')}</span>
               <XCircle className="h-5 w-5" />
             </button>
           </div>

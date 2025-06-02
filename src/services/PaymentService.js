@@ -2,6 +2,7 @@ const Stripe = require('stripe');
 const LogService = require('./LogService');
 const Subscription = require('../models/Subscription');
 const User = require('../models/User');
+const { t } = require('../utils/translate');
 
 class PaymentService {
     constructor() {
@@ -25,14 +26,14 @@ class PaymentService {
         }
     }
 
-    async createCheckoutSession(userId, planId, successUrl, cancelUrl) {
+    async createCheckoutSession(userId, planId, successUrl, cancelUrl, req) {
         try {
             const user = await User.findById(userId);
             const subscription = await Subscription.findOne({ userId });
             const plan = Subscription.PLANS[planId];
 
             if (!plan || planId === 'trial') {
-                throw new Error('Invalid plan selected');
+                throw new Error(t('payment.invalid_plan', req));
             }
 
             // Créer ou récupérer le client Stripe
@@ -79,11 +80,11 @@ class PaymentService {
         }
     }
 
-    async createPortalSession(userId, returnUrl) {
+    async createPortalSession(userId, returnUrl, req) {
         try {
             const subscription = await Subscription.findOne({ userId });
             if (!subscription?.stripeCustomerId) {
-                throw new Error('No subscription found');
+                throw new Error(t('payment.no_subscription', req));
             }
 
             const session = await this.stripe.billingPortal.sessions.create({
@@ -264,15 +265,15 @@ class PaymentService {
         return statusMap[stripeStatus] || 'expired';
     }
 
-    async cancelSubscription(userId, immediately = false) {
+    async cancelSubscription(userId, immediately = false, req) {
         try {
             const subscription = await Subscription.findOne({ userId });
             
             if (!subscription?.stripeSubscriptionId) {
-                throw new Error('No active subscription found');
+                throw new Error(t('payment.no_active_subscription', req));
             }
 
-            const stripeSubscription = await this.stripe.subscriptions.update(
+            await this.stripe.subscriptions.update(
                 subscription.stripeSubscriptionId,
                 {
                     cancel_at_period_end: !immediately

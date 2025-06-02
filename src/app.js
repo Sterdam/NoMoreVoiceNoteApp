@@ -15,6 +15,8 @@ const { doubleCsrfProtection, generateCSRFToken, validateCSRF, getCSRFToken } = 
 const performanceOptimizer = require('./utils/performanceOptimizer');
 const { apiLimiter } = require('./middlewares/rateLimit');
 const { addLegalHeaders, checkGDPRCompliance, checkExportCompliance } = require('./middlewares/legal');
+const languageMiddleware = require('./middlewares/language');
+const i18n = require('./config/i18n');
 
 // Import des routes
 const authRoutes = require('./routes/auth');
@@ -119,6 +121,10 @@ const configureApp = () => {
     if (process.env.NODE_ENV !== 'development') {
         app.use('/api/', apiLimiter);
     }
+    
+    // Language middleware
+    app.use(i18n.init);
+    app.use(languageMiddleware);
     
     // Headers de sécurité supplémentaires
     app.use((req, res, next) => {

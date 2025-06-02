@@ -8,20 +8,22 @@ import { useAuthStore } from '../stores/useStore';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { useToast } from '../hooks/useToast';
-
-const benefits = [
-  '10 transcriptions gratuites par mois',
-  'Support multilingue (50+ langues)',
-  'Sécurité et confidentialité garanties',
-  'Pas de carte bancaire requise'
-];
+import { useTranslation } from 'react-i18next';
 
 export default function Register() {
+  const { t } = useTranslation();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const toast = useToast();
   const { login } = useAuthStore();
+  
+  const benefits = [
+    t('auth.register.benefits.freeTranscriptions'),
+    t('auth.register.benefits.multilingual'),
+    t('auth.register.benefits.security'),
+    t('auth.register.benefits.noCreditCard')
+  ];
   
   const {
     register,
@@ -38,11 +40,11 @@ export default function Register() {
       
       if (response.data.user && response.data.token) {
         login(response.data.user, response.data.token);
-        toast.success('Compte créé avec succès !');
+        toast.success(t('auth.register.success'));
         navigate('/dashboard');
       }
     } catch (error) {
-      toast.error(error.response?.data?.error || 'Erreur lors de l\'inscription');
+      toast.error(error.response?.data?.error || t('auth.register.error'));
     } finally {
       setLoading(false);
     }
@@ -61,10 +63,10 @@ export default function Register() {
           >
             <Mic className="h-16 w-16 mb-8" />
             <h2 className="text-4xl font-bold mb-6">
-              Commencez gratuitement
+              {t('auth.register.startFree')}
             </h2>
             <p className="text-xl mb-8 text-primary-100">
-              Créez votre compte et profitez immédiatement de tous les avantages de VoxKill.
+              {t('auth.register.createAccountBenefit')}
             </p>
             
             <div className="space-y-4">
@@ -89,7 +91,7 @@ export default function Register() {
               className="mt-12 p-6 bg-white/10 backdrop-blur-sm rounded-xl"
             >
               <p className="text-sm text-primary-100 mb-2">
-                Déjà plus de 10,000 utilisateurs
+                {t('auth.register.userCount')}
               </p>
               <div className="flex items-center">
                 {[...Array(5)].map((_, i) => (
@@ -101,7 +103,7 @@ export default function Register() {
                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                   </svg>
                 ))}
-                <span className="ml-2 text-sm">4.9/5 sur 1,234 avis</span>
+                <span className="ml-2 text-sm">{t('auth.register.rating')}</span>
               </div>
             </motion.div>
           </motion.div>
@@ -124,10 +126,10 @@ export default function Register() {
               </span>
             </Link>
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
-              Créez votre compte gratuit
+              {t('auth.register.title')}
             </h2>
             <p className="mt-2 text-gray-600 dark:text-gray-400">
-              Commencez à transcrire vos notes vocales en quelques secondes
+              {t('auth.register.subtitle')}
             </p>
           </div>
 
@@ -135,7 +137,7 @@ export default function Register() {
             <div className="space-y-4">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Adresse email
+                  {t('auth.register.emailLabel')}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -145,13 +147,13 @@ export default function Register() {
                     id="email"
                     type="email"
                     autoComplete="email"
-                    placeholder="vous@exemple.com"
+                    placeholder={t('auth.register.emailPlaceholder')}
                     className="pl-10"
                     {...register('email', {
-                      required: 'Email requis',
+                      required: t('auth.validation.emailRequired'),
                       pattern: {
                         value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                        message: 'Email invalide'
+                        message: t('auth.validation.emailInvalid')
                       }
                     })}
                     error={errors.email?.message}
@@ -161,7 +163,7 @@ export default function Register() {
 
               <div>
                 <label htmlFor="whatsappNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Numéro WhatsApp
+                  {t('auth.register.whatsappLabel')}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -171,26 +173,26 @@ export default function Register() {
                     id="whatsappNumber"
                     type="tel"
                     autoComplete="tel"
-                    placeholder="+33 6 12 34 56 78"
+                    placeholder={t('auth.register.whatsappPlaceholder')}
                     className="pl-10"
                     {...register('whatsappNumber', {
-                      required: 'Numéro WhatsApp requis',
+                      required: t('auth.validation.whatsappRequired'),
                       pattern: {
                         value: /^\+?[1-9]\d{1,14}$/,
-                        message: 'Format invalide (ex: +33612345678)'
+                        message: t('auth.validation.whatsappInvalid')
                       }
                     })}
                     error={errors.whatsappNumber?.message}
                   />
                 </div>
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Format international avec indicatif pays
+                  {t('auth.register.whatsappHelp')}
                 </p>
               </div>
 
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Mot de passe
+                  {t('auth.register.passwordLabel')}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -200,17 +202,17 @@ export default function Register() {
                     id="password"
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="new-password"
-                    placeholder="••••••••"
+                    placeholder={t('auth.register.passwordPlaceholder')}
                     className="pl-10 pr-10"
                     {...register('password', {
-                      required: 'Mot de passe requis',
+                      required: t('auth.validation.passwordRequired'),
                       minLength: {
                         value: 6,
-                        message: 'Minimum 6 caractères'
+                        message: t('auth.validation.passwordMinLength')
                       },
                       pattern: {
                         value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-                        message: 'Doit contenir majuscule, minuscule et chiffre'
+                        message: t('auth.validation.passwordComplexity')
                       }
                     })}
                     error={errors.password?.message}
@@ -236,17 +238,17 @@ export default function Register() {
                   type="checkbox"
                   className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded mt-0.5"
                   {...register('terms', {
-                    required: 'Vous devez accepter les conditions'
+                    required: t('auth.validation.termsRequired')
                   })}
                 />
                 <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
-                  J'accepte les{' '}
+                  {t('auth.register.termsPrefix')}{' '}
                   <Link to="/terms" target="_blank" className="text-primary-600 hover:text-primary-500">
-                    conditions d'utilisation
+                    {t('auth.register.termsLink')}
                   </Link>{' '}
-                  et la{' '}
+                  {t('auth.register.termsMiddle')}{' '}
                   <Link to="/privacy" target="_blank" className="text-primary-600 hover:text-primary-500">
-                    politique de confidentialité
+                    {t('auth.register.privacyLink')}
                   </Link>
                 </span>
               </label>
@@ -267,11 +269,11 @@ export default function Register() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Création du compte...
+                  {t('auth.register.loading')}
                 </span>
               ) : (
                 <span className="flex items-center">
-                  Créer mon compte gratuit
+                  {t('auth.register.submitButton')}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </span>
               )}
@@ -279,13 +281,13 @@ export default function Register() {
 
             <div className="text-center">
               <span className="text-sm text-gray-600 dark:text-gray-400">
-                Déjà un compte ?{' '}
+                {t('auth.register.alreadyHaveAccount')}{' '}
               </span>
               <Link
                 to="/login"
                 className="text-sm text-primary-600 hover:text-primary-500 font-medium"
               >
-                Se connecter
+                {t('auth.register.loginLink')}
               </Link>
             </div>
           </form>

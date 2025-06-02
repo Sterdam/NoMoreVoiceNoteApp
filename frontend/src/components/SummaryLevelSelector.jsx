@@ -1,33 +1,36 @@
 import { motion } from 'framer-motion';
 import { Check, FileText, FileTextIcon, Files } from 'lucide-react';
 import { cn } from '../lib/utils';
-
-const summaryLevels = [
-    {
-        id: 'none',
-        name: 'Sans résumé',
-        description: 'Transcription uniquement',
-        icon: FileText,
-        color: 'gray'
-    },
-    {
-        id: 'concise',
-        name: 'Résumé concis',
-        description: '2-3 phrases essentielles',
-        icon: FileTextIcon,
-        color: 'blue',
-        recommended: true
-    },
-    {
-        id: 'detailed',
-        name: 'Résumé détaillé',
-        description: '5-7 phrases structurées',
-        icon: Files,
-        color: 'purple'
-    }
-];
+import { useTranslation } from 'react-i18next';
 
 export function SummaryLevelSelector({ value, onChange, disabled = false }) {
+    const { t } = useTranslation();
+    
+    const summaryLevels = [
+        {
+            id: 'none',
+            name: t('summaryLevels.none.name'),
+            description: t('summaryLevels.none.description'),
+            icon: FileText,
+            color: 'gray'
+        },
+        {
+            id: 'concise',
+            name: t('summaryLevels.concise.name'),
+            description: t('summaryLevels.concise.description'),
+            icon: FileTextIcon,
+            color: 'blue',
+            recommended: true
+        },
+        {
+            id: 'detailed',
+            name: t('summaryLevels.detailed.name'),
+            description: t('summaryLevels.detailed.description'),
+            icon: Files,
+            color: 'purple'
+        }
+    ];
+    
     return (
         <div className="grid md:grid-cols-3 gap-4">
             {summaryLevels.map((level) => {
@@ -50,7 +53,7 @@ export function SummaryLevelSelector({ value, onChange, disabled = false }) {
                     >
                         {level.recommended && (
                             <span className="absolute -top-2 -right-2 bg-primary-500 text-white text-xs px-2 py-1 rounded-full">
-                                Recommandé
+                                {t('summaryLevels.recommended')}
                             </span>
                         )}
                         

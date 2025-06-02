@@ -1,10 +1,12 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { 
-  Mic, FileText, Clock, Shield, Zap, Check, ChevronRight,
-  Star, Users, Globe, Headphones, BarChart3, Smartphone
+  Mic, Clock, Shield, Zap, Check, ChevronRight,
+  Star, Globe, Headphones, BarChart3, Smartphone
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
+import LanguageSelector from '../components/LanguageSelector';
 
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
@@ -12,6 +14,8 @@ const fadeIn = {
 };
 
 export default function Landing() {
+  const { t } = useTranslation();
+  
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800">
       {/* Navigation */}
@@ -25,11 +29,12 @@ export default function Landing() {
               </span>
             </div>
             <div className="flex items-center gap-4">
+              <LanguageSelector />
               <Link to="/login">
-                <Button variant="ghost">Connexion</Button>
+                <Button variant="ghost">{t('nav.login')}</Button>
               </Link>
               <Link to="/register">
-                <Button>Commencer gratuitement</Button>
+                <Button>{t('nav.register')}</Button>
               </Link>
             </div>
           </div>
@@ -47,26 +52,25 @@ export default function Landing() {
             className="text-center"
           >
             <h1 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
-              Transformez vos notes vocales
-              <span className="text-primary-600"> WhatsApp</span> en texte
+              {t('landing.hero.title')}
+              <span className="text-primary-600"> {t('landing.hero.whatsapp')}</span> {t('landing.hero.intoText')}
             </h1>
             <p className="text-xl text-gray-600 dark:text-gray-400 mb-8 max-w-3xl mx-auto">
-              Plus besoin d'écouter de longues notes vocales. Notre IA transcrit instantanément 
-              vos messages WhatsApp avec une précision exceptionnelle.
+              {t('landing.hero.description')}
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link to="/register">
                 <Button size="lg" className="w-full sm:w-auto">
-                  Essayer gratuitement
+                  {t('landing.hero.tryFree')}
                   <ChevronRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
               <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                Voir la démo
+                {t('landing.hero.seeDemo')}
               </Button>
             </div>
             <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-              ✓ 10 transcriptions gratuites • ✓ Sans carte bancaire
+              {t('landing.hero.benefits')}
             </p>
           </motion.div>
 
@@ -86,7 +90,7 @@ export default function Landing() {
                     </div>
                     <div>
                       <p className="font-semibold text-gray-900 dark:text-white">WhatsApp Voice Note</p>
-                      <p className="text-sm text-gray-500">2:34 min</p>
+                      <p className="text-sm text-gray-500">2:34 {t('common.minutes')}</p>
                     </div>
                   </div>
                   <motion.div
@@ -111,8 +115,7 @@ export default function Landing() {
                     transition={{ delay: 2.5 }}
                     className="text-gray-700 dark:text-gray-300 mt-4"
                   >
-                    "Salut! Je voulais te dire que la réunion de demain est reportée à 15h.
-                    N'oublie pas d'apporter les documents..."
+                    {t('landing.hero.demoText')}
                   </motion.p>
                 </div>
               </div>
@@ -132,10 +135,10 @@ export default function Landing() {
             className="text-center mb-16"
           >
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-              Pourquoi choisir VoiceNote Pro?
+              {t('landing.features.title')}
             </h2>
             <p className="text-xl text-gray-600 dark:text-gray-400">
-              Des fonctionnalités puissantes pour simplifier votre quotidien
+              {t('landing.features.subtitle')}
             </p>
           </motion.div>
 
@@ -143,33 +146,33 @@ export default function Landing() {
             {[
               {
                 icon: Zap,
-                title: 'Transcription instantanée',
-                description: 'Recevez vos transcriptions en quelques secondes, directement dans WhatsApp.'
+                title: t('landing.features.instant.title'),
+                description: t('landing.features.instant.description')
               },
               {
                 icon: Globe,
-                title: 'Support multilingue',
-                description: 'Transcription précise en français, anglais, espagnol et plus de 50 langues.'
+                title: t('landing.features.multilingual.title'),
+                description: t('landing.features.multilingual.description')
               },
               {
                 icon: Shield,
-                title: 'Sécurité maximale',
-                description: 'Vos données sont chiffrées et supprimées après traitement. Confidentialité garantie.'
+                title: t('landing.features.security.title'),
+                description: t('landing.features.security.description')
               },
               {
                 icon: Smartphone,
-                title: 'Simple à utiliser',
-                description: 'Envoyez simplement vos notes vocales à notre bot WhatsApp. C\'est tout!'
+                title: t('landing.features.simple.title'),
+                description: t('landing.features.simple.description')
               },
               {
                 icon: BarChart3,
-                title: 'Tableau de bord',
-                description: 'Suivez votre utilisation et accédez à l\'historique de vos transcriptions.'
+                title: t('landing.features.dashboard.title'),
+                description: t('landing.features.dashboard.description')
               },
               {
                 icon: Clock,
-                title: 'Gain de temps',
-                description: 'Plus besoin d\'écouter des messages de 10 minutes. Lisez en 30 secondes.'
+                title: t('landing.features.timeSaving.title'),
+                description: t('landing.features.timeSaving.description')
               }
             ].map((feature, index) => (
               <motion.div
@@ -205,57 +208,57 @@ export default function Landing() {
             className="text-center mb-16"
           >
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-              Tarifs simples et transparents
+              {t('landing.pricing.title')}
             </h2>
             <p className="text-xl text-gray-600 dark:text-gray-400">
-              Commencez gratuitement, évoluez selon vos besoins
+              {t('landing.pricing.subtitle')}
             </p>
           </motion.div>
 
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             {[
               {
-                name: 'Gratuit',
-                price: '0€',
-                period: 'pour toujours',
+                name: t('landing.pricing.free.title'),
+                price: t('landing.pricing.free.price'),
+                period: t('common.forever'),
                 features: [
-                  '10 transcriptions par mois',
-                  'Messages jusqu\'à 5 minutes',
-                  'Français et anglais',
-                  'Historique 7 jours'
+                  t('landing.pricing.free.features.transcriptions'),
+                  t('landing.pricing.free.features.duration'),
+                  t('landing.pricing.free.features.languages'),
+                  t('landing.pricing.free.features.history')
                 ],
-                cta: 'Commencer',
+                cta: t('common.start'),
                 variant: 'outline'
               },
               {
-                name: 'Pro',
-                price: '9,99€',
-                period: 'par mois',
+                name: t('landing.pricing.pro.title'),
+                price: t('landing.pricing.pro.price'),
+                period: t('common.perMonth'),
                 features: [
-                  '500 transcriptions par mois',
-                  'Messages jusqu\'à 30 minutes',
-                  'Toutes les langues',
-                  'Historique illimité',
-                  'Export PDF/TXT',
-                  'Support prioritaire'
+                  t('landing.pricing.pro.features.transcriptions'),
+                  t('landing.pricing.pro.features.duration'),
+                  t('landing.pricing.pro.features.languages'),
+                  t('landing.pricing.pro.features.history'),
+                  t('landing.pricing.pro.features.export'),
+                  t('landing.pricing.pro.features.support')
                 ],
-                cta: 'Essai gratuit 7 jours',
+                cta: t('landing.pricing.pro.trial'),
                 variant: 'primary',
                 popular: true
               },
               {
-                name: 'Business',
-                price: '29,99€',
-                period: 'par mois',
+                name: t('landing.pricing.business.title'),
+                price: t('landing.pricing.business.price'),
+                period: t('common.perMonth'),
                 features: [
-                  'Transcriptions illimitées',
-                  'Pas de limite de durée',
-                  'API dédiée',
-                  'Comptes multiples',
-                  'Facturation entreprise',
-                  'Support 24/7'
+                  t('landing.pricing.business.features.transcriptions'),
+                  t('landing.pricing.business.features.duration'),
+                  t('landing.pricing.business.features.api'),
+                  t('landing.pricing.business.features.accounts'),
+                  t('landing.pricing.business.features.billing'),
+                  t('landing.pricing.business.features.support')
                 ],
-                cta: 'Contacter',
+                cta: t('common.contact'),
                 variant: 'outline'
               }
             ].map((plan, index) => (
@@ -275,7 +278,7 @@ export default function Landing() {
                 {plan.popular && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
                     <span className="bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full text-sm font-semibold">
-                      Plus populaire
+                      {t('common.popular')}
                     </span>
                   </div>
                 )}
@@ -333,31 +336,31 @@ export default function Landing() {
             className="text-center mb-16"
           >
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-              Ils nous font confiance
+              {t('landing.testimonials.title')}
             </h2>
             <p className="text-xl text-gray-600 dark:text-gray-400">
-              Découvrez ce que nos utilisateurs disent de nous
+              {t('landing.testimonials.subtitle')}
             </p>
           </motion.div>
 
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
-                name: 'Marie Laurent',
-                role: 'Chef de projet',
-                content: 'Un gain de temps incroyable! Je peux enfin gérer les notes vocales de mes collègues sans y passer des heures.',
+                name: t('landing.testimonials.testimonial1.name'),
+                role: t('landing.testimonials.testimonial1.role'),
+                content: t('landing.testimonials.testimonial1.text'),
                 rating: 5
               },
               {
-                name: 'Thomas Dubois',
-                role: 'Entrepreneur',
-                content: 'La transcription est d\'une précision remarquable. L\'outil parfait pour ne rien manquer d\'important.',
+                name: t('landing.testimonials.testimonial2.name'),
+                role: t('landing.testimonials.testimonial2.role'),
+                content: t('landing.testimonials.testimonial2.text'),
                 rating: 5
               },
               {
-                name: 'Sophie Martin',
-                role: 'Consultante',
-                content: 'Simple, efficace et sécurisé. Je recommande à tous ceux qui reçoivent beaucoup de notes vocales.',
+                name: t('landing.testimonials.testimonial3.name'),
+                role: t('landing.testimonials.testimonial3.role'),
+                content: t('landing.testimonials.testimonial3.text'),
                 rating: 5
               }
             ].map((testimonial, index) => (
@@ -403,19 +406,19 @@ export default function Landing() {
             className="bg-gradient-to-r from-primary-600 to-purple-600 rounded-3xl p-12 text-white"
           >
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Prêt à simplifier votre quotidien?
+              {t('landing.cta.title')}
             </h2>
             <p className="text-xl mb-8 text-primary-100">
-              Rejoignez des milliers d'utilisateurs qui gagnent du temps chaque jour
+              {t('landing.cta.subtitle')}
             </p>
             <Link to="/register">
               <Button size="lg" variant="secondary">
-                Commencer gratuitement
+                {t('landing.cta.button')}
                 <ChevronRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
             <p className="mt-4 text-sm text-primary-100">
-              10 transcriptions gratuites • Sans engagement
+              {t('landing.cta.benefits')}
             </p>
           </motion.div>
         </div>
@@ -433,36 +436,36 @@ export default function Landing() {
                 </span>
               </div>
               <p className="text-gray-600 dark:text-gray-400">
-                La solution de transcription WhatsApp la plus simple et efficace.
+                {t('landing.footer.description')}
               </p>
             </div>
             <div>
-              <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Produit</h4>
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-4">{t('landing.footer.product.title')}</h4>
               <ul className="space-y-2 text-gray-600 dark:text-gray-400">
-                <li><a href="#" className="hover:text-primary-600">Fonctionnalités</a></li>
-                <li><a href="#" className="hover:text-primary-600">Tarifs</a></li>
-                <li><a href="#" className="hover:text-primary-600">API</a></li>
+                <li><a href="#" className="hover:text-primary-600">{t('landing.footer.product.features')}</a></li>
+                <li><a href="#" className="hover:text-primary-600">{t('landing.footer.product.pricing')}</a></li>
+                <li><a href="#" className="hover:text-primary-600">{t('landing.footer.product.api')}</a></li>
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Support</h4>
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-4">{t('landing.footer.support.title')}</h4>
               <ul className="space-y-2 text-gray-600 dark:text-gray-400">
-                <li><a href="#" className="hover:text-primary-600">Centre d'aide</a></li>
-                <li><a href="#" className="hover:text-primary-600">Contact</a></li>
-                <li><a href="#" className="hover:text-primary-600">FAQ</a></li>
+                <li><a href="#" className="hover:text-primary-600">{t('landing.footer.support.help')}</a></li>
+                <li><a href="#" className="hover:text-primary-600">{t('landing.footer.support.contact')}</a></li>
+                <li><a href="#" className="hover:text-primary-600">{t('landing.footer.support.faq')}</a></li>
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Légal</h4>
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-4">{t('landing.footer.legal.title')}</h4>
               <ul className="space-y-2 text-gray-600 dark:text-gray-400">
-                <li><a href="#" className="hover:text-primary-600">Confidentialité</a></li>
-                <li><a href="#" className="hover:text-primary-600">Conditions</a></li>
-                <li><a href="#" className="hover:text-primary-600">RGPD</a></li>
+                <li><a href="#" className="hover:text-primary-600">{t('landing.footer.legal.privacy')}</a></li>
+                <li><a href="#" className="hover:text-primary-600">{t('landing.footer.legal.terms')}</a></li>
+                <li><a href="#" className="hover:text-primary-600">{t('landing.footer.legal.gdpr')}</a></li>
               </ul>
             </div>
           </div>
           <div className="mt-8 pt-8 border-t border-gray-200 dark:border-gray-700 text-center text-gray-600 dark:text-gray-400">
-            <p>&copy; 2024 VoiceNote Pro. Tous droits réservés.</p>
+            <p>{t('landing.footer.copyright')}</p>
           </div>
         </div>
       </footer>

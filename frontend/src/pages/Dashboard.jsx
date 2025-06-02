@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard, FileText, Settings, CreditCard, LogOut, Search,
   Filter, Download, Trash2, Calendar, Clock, Languages, TrendingUp,
@@ -17,6 +18,7 @@ import { fr } from 'date-fns/locale';
 
 // Components
 import { Button } from '../components/ui/Button';
+import LanguageSelector from '../components/LanguageSelector';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
@@ -29,14 +31,15 @@ import { useAuthStore, useTranscriptStore, useThemeStore } from '../stores/useSt
 import axios from '../utils/api';
 
 const sidebarItems = [
-  { icon: LayoutDashboard, label: 'Tableau de bord', path: 'overview' },
-  { icon: FileText, label: 'Transcriptions', path: 'transcripts' },
-  { icon: QrCode, label: 'WhatsApp', path: 'whatsapp' },
-  { icon: CreditCard, label: 'Abonnement', path: 'subscription' },
-  { icon: Settings, label: 'Paramètres', path: 'settings' },
+  { icon: LayoutDashboard, label: 'dashboard.sidebar.overview', path: 'overview' },
+  { icon: FileText, label: 'dashboard.sidebar.transcriptions', path: 'transcripts' },
+  { icon: QrCode, label: 'dashboard.sidebar.whatsapp', path: 'whatsapp' },
+  { icon: CreditCard, label: 'dashboard.sidebar.subscription', path: 'subscription' },
+  { icon: Settings, label: 'dashboard.sidebar.settings', path: 'settings' },
 ];
 
 export default function Dashboard() {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const [activeSection, setActiveSection] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -61,10 +64,10 @@ export default function Dashboard() {
   useEffect(() => {
     const payment = searchParams.get('payment');
     if (payment === 'success') {
-      toast.success('Paiement réussi ! Votre abonnement est maintenant actif.');
+      toast.success(t('dashboard.payment.success'));
       setActiveSection('subscription');
     } else if (payment === 'cancelled') {
-      toast.error('Paiement annulé.');
+      toast.error(t('dashboard.payment.cancelled'));
     }
   }, [searchParams]);
 
@@ -114,7 +117,7 @@ export default function Dashboard() {
     enabled: activeSection === 'transcripts'
   });
 
-  const { data: qrCode, refetch: refetchQR } = useQuery({
+  const { data: qrCode } = useQuery({
     queryKey: ['whatsapp-qr'],
     queryFn: async () => {
       const response = await axios.get('/api/transcripts/whatsapp-qr');
@@ -141,7 +144,7 @@ export default function Dashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries(['dashboard']);
       queryClient.invalidateQueries(['whatsapp-qr']);
-      toast.success('Déconnecté de WhatsApp');
+      toast.success(t('dashboard.whatsapp.disconnected'));
     }
   });
 
@@ -149,7 +152,7 @@ export default function Dashboard() {
     mutationFn: (id) => axios.delete(`/api/transcripts/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries(['transcripts']);
-      toast.success('Transcription supprimée');
+      toast.success(t('dashboard.transcriptions.deleted'));
     }
   });
 
@@ -157,7 +160,7 @@ export default function Dashboard() {
     mutationFn: (settings) => axios.patch('/api/users/profile', { settings }),
     onSuccess: () => {
       queryClient.invalidateQueries(['dashboard']);
-      toast.success('Paramètres sauvegardés');
+      toast.success(t('dashboard.settings.saved'));
     }
   });
 
@@ -193,7 +196,7 @@ export default function Dashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Transcriptions totales</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{t('dashboard.overview.totalTranscriptions')}</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
                     {dashboardData?.stats?.total || 0}
                   </p>
@@ -215,7 +218,7 @@ export default function Dashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Minutes transcrites</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{t('dashboard.overview.transcribedMinutes')}</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
                     {dashboardData?.stats?.totalMinutes?.toFixed(1) || 0}
                   </p>
@@ -237,7 +240,7 @@ export default function Dashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Langues détectées</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{t('dashboard.overview.detectedLanguages')}</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
                     {Object.keys(dashboardData?.stats?.languages || {}).length}
                   </p>
@@ -259,9 +262,9 @@ export default function Dashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Statut WhatsApp</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{t('dashboard.overview.whatsappStatus')}</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {dashboardData?.whatsappStatus?.connected ? 'Connecté' : 'Déconnecté'}
+                    {dashboardData?.whatsappStatus?.connected ? t('dashboard.overview.connected') : t('dashboard.overview.disconnected')}
                   </p>
                 </div>
                 <div className={`p-3 ${dashboardData?.whatsappStatus?.connected ? 'bg-green-100 dark:bg-green-900/20' : 'bg-red-100 dark:bg-red-900/20'} rounded-lg`}>
@@ -277,8 +280,8 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Activité quotidienne</CardTitle>
-            <CardDescription>Nombre de transcriptions par jour</CardDescription>
+            <CardTitle>{t('dashboard.overview.dailyActivity')}</CardTitle>
+            <CardDescription>{t('dashboard.overview.transcriptionsPerDay')}</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -301,8 +304,8 @@ export default function Dashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Langues détectées</CardTitle>
-            <CardDescription>Répartition par langue</CardDescription>
+            <CardTitle>{t('dashboard.overview.detectedLanguages')}</CardTitle>
+            <CardDescription>{t('dashboard.overview.languageDistribution')}</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -331,8 +334,8 @@ export default function Dashboard() {
       {/* Recent Transcripts */}
       <Card>
         <CardHeader>
-          <CardTitle>Transcriptions récentes</CardTitle>
-          <CardDescription>Vos 5 dernières transcriptions</CardDescription>
+          <CardTitle>{t('dashboard.overview.recentTranscriptions')}</CardTitle>
+          <CardDescription>{t('dashboard.overview.last5Transcriptions')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -357,7 +360,7 @@ export default function Dashboard() {
                       setActiveSection('transcripts');
                     }}
                   >
-                    Voir
+                    {t('dashboard.transcriptions.view')}
                   </Button>
                 </div>
               </div>
@@ -376,7 +379,7 @@ export default function Dashboard() {
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <Input
-                placeholder="Rechercher..."
+                placeholder={t('dashboard.transcriptions.search')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full"
@@ -389,14 +392,14 @@ export default function Dashboard() {
                 onChange={(e) => setDateFilter(e.target.value)}
                 className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900"
               >
-                <option value="all">Toutes les dates</option>
-                <option value="today">Aujourd'hui</option>
-                <option value="week">Cette semaine</option>
-                <option value="month">Ce mois</option>
+                <option value="all">{t('dashboard.transcriptions.allDates')}</option>
+                <option value="today">{t('dashboard.transcriptions.today')}</option>
+                <option value="week">{t('dashboard.transcriptions.thisWeek')}</option>
+                <option value="month">{t('dashboard.transcriptions.thisMonth')}</option>
               </select>
               <Button variant="outline">
                 <Download className="h-4 w-4 mr-2" />
-                Exporter
+                {t('dashboard.transcriptions.export')}
               </Button>
             </div>
           </div>
@@ -434,7 +437,7 @@ export default function Dashboard() {
                         <Badge variant="primary">{transcript.duration}s</Badge>
                         <Badge>{transcript.language}</Badge>
                         {transcript.hasSummary && (
-                          <Badge variant="success">Résumé</Badge>
+                          <Badge variant="success">{t('dashboard.transcriptions.summary')}</Badge>
                         )}
                       </div>
                       <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
@@ -450,7 +453,7 @@ export default function Dashboard() {
                         variant="ghost"
                         onClick={() => setSelectedTranscript(transcript)}
                       >
-                        Voir
+                        {t('dashboard.transcriptions.view')}
                       </Button>
                       <Button
                         size="sm"
@@ -468,7 +471,7 @@ export default function Dashboard() {
                 <div className="text-center py-12">
                   <Mic className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-600 dark:text-gray-400">
-                    Aucune transcription trouvée
+                    {t('dashboard.transcriptions.noTranscriptions')}
                   </p>
                 </div>
               )}
@@ -482,11 +485,11 @@ export default function Dashboard() {
   const renderWhatsApp = () => (
     <Card>
       <CardHeader>
-        <CardTitle>Connexion WhatsApp</CardTitle>
+        <CardTitle>{t('dashboard.whatsapp.title')}</CardTitle>
         <CardDescription>
           {dashboardData?.whatsappStatus?.connected
-            ? 'Votre compte WhatsApp est connecté'
-            : 'Scannez le QR code pour connecter votre compte'}
+            ? t('dashboard.whatsapp.accountConnected')
+            : t('dashboard.whatsapp.scanQRCode')}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -496,13 +499,13 @@ export default function Dashboard() {
               <Check className="h-10 w-10 text-green-600" />
             </div>
             <p className="text-green-700 dark:text-green-400 mb-6">
-              WhatsApp est connecté et prêt à recevoir vos notes vocales !
+              {t('dashboard.whatsapp.readyToReceive')}
             </p>
             <Button
               variant="danger"
               onClick={() => whatsappLogoutMutation.mutate()}
             >
-              Déconnecter WhatsApp
+              {t('dashboard.whatsapp.disconnect')}
             </Button>
           </div>
         ) : (
@@ -515,9 +518,9 @@ export default function Dashboard() {
                   className="mx-auto mb-6 border-2 border-gray-200 dark:border-gray-700 rounded-lg"
                 />
                 <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                  <p>1. Ouvrez WhatsApp sur votre téléphone</p>
-                  <p>2. Allez dans Paramètres → Appareils connectés</p>
-                  <p>3. Scannez ce QR code</p>
+                  <p>{t('dashboard.whatsapp.instructions.step1')}</p>
+                  <p>{t('dashboard.whatsapp.instructions.step2')}</p>
+                  <p>{t('dashboard.whatsapp.instructions.step3')}</p>
                 </div>
               </>
             ) : (
@@ -536,8 +539,8 @@ export default function Dashboard() {
       {/* Current Plan */}
       <Card>
         <CardHeader>
-          <CardTitle>Plan actuel</CardTitle>
-          <CardDescription>Gérez votre abonnement et votre utilisation</CardDescription>
+          <CardTitle>{t('dashboard.subscription.currentPlan')}</CardTitle>
+          <CardDescription>{t('dashboard.subscription.manageSubscription')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between mb-6">
@@ -547,7 +550,7 @@ export default function Dashboard() {
               </h3>
               {dashboardData?.subscription?.plan === 'trial' && (
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {dashboardData?.subscription?.getRemainingTrial} jours restants
+                  {dashboardData?.subscription?.getRemainingTrial} {t('dashboard.subscription.daysRemaining')}
                 </p>
               )}
             </div>
@@ -559,7 +562,7 @@ export default function Dashboard() {
                   window.location.href = response.data.url;
                 }}
               >
-                Gérer l'abonnement
+                {t('dashboard.subscription.manage')}
               </Button>
             )}
           </div>
@@ -568,9 +571,9 @@ export default function Dashboard() {
           <div className="space-y-4">
             <div>
               <div className="flex justify-between text-sm mb-2">
-                <span>Minutes utilisées</span>
+                <span>{t('dashboard.subscription.usage.minutesUsed')}</span>
                 <span className="font-medium">
-                  {dashboardData?.usage?.transcriptionsCount} transcriptions
+                  {dashboardData?.usage?.transcriptionsCount} {t('dashboard.subscription.usage.transcriptions')}
                 </span>
               </div>
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
@@ -587,16 +590,16 @@ export default function Dashboard() {
                 />
               </div>
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                {dashboardData?.usage?.remainingMinutes?.toFixed(1)} minutes restantes sur{' '}
+                {dashboardData?.usage?.remainingMinutes?.toFixed(1)} {t('dashboard.subscription.usage.minutesRemaining')} {' '}
                 {dashboardData?.subscription?.limits?.minutesPerMonth}
               </p>
             </div>
 
             <div>
               <div className="flex justify-between text-sm mb-2">
-                <span>Résumés utilisés</span>
+                <span>{t('dashboard.subscription.usage.summariesUsed')}</span>
                 <span className="font-medium">
-                  {dashboardData?.usage?.summariesCount} résumés
+                  {dashboardData?.usage?.summariesCount} {t('dashboard.subscription.usage.summaries')}
                 </span>
               </div>
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
@@ -613,7 +616,7 @@ export default function Dashboard() {
                 />
               </div>
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                {dashboardData?.usage?.remainingSummaries} résumés restants sur{' '}
+                {dashboardData?.usage?.remainingSummaries} {t('dashboard.subscription.usage.summariesRemaining')} {' '}
                 {dashboardData?.subscription?.limits?.summariesPerMonth}
               </p>
             </div>
@@ -645,7 +648,7 @@ export default function Dashboard() {
                   <CardTitle className="capitalize">{planKey}</CardTitle>
                   <div className="mt-4">
                     <span className="text-3xl font-bold">{plan.price}€</span>
-                    <span className="text-gray-600 dark:text-gray-400">/mois</span>
+                    <span className="text-gray-600 dark:text-gray-400">/{t('dashboard.subscription.month')}</span>
                   </div>
                 </div>
               </CardHeader>
@@ -653,26 +656,26 @@ export default function Dashboard() {
                 <ul className="space-y-3 mb-6">
                   <li className="flex items-center text-sm">
                     <Check className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                    {plan.limits.minutesPerMonth / 60} heures de transcription
+                    {plan.limits.minutesPerMonth / 60} {t('dashboard.subscription.features.hoursTranscription')}
                   </li>
                   <li className="flex items-center text-sm">
                     <Check className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                    {plan.limits.summariesPerMonth} résumés
+                    {plan.limits.summariesPerMonth} {t('dashboard.subscription.features.summaries')}
                   </li>
                   <li className="flex items-center text-sm">
                     <Check className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                    Audio jusqu'à {plan.limits.maxAudioDuration / 60} min
+                    {t('dashboard.subscription.features.audioUpTo', { minutes: plan.limits.maxAudioDuration / 60 })}
                   </li>
                   {plan.features?.multiLanguage && (
                     <li className="flex items-center text-sm">
                       <Check className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      Multi-langues
+                      {t('dashboard.subscription.features.multiLanguage')}
                     </li>
                   )}
                   {plan.features?.priority && (
                     <li className="flex items-center text-sm">
                       <Star className="h-4 w-4 text-yellow-500 mr-2 flex-shrink-0" />
-                      Traitement prioritaire
+                      {t('dashboard.subscription.features.priorityProcessing')}
                     </li>
                   )}
                 </ul>
@@ -687,7 +690,7 @@ export default function Dashboard() {
                     window.location.href = response.data.url;
                   }}
                 >
-                  {isCurrentPlan ? 'Plan actuel' : 'Choisir ce plan'}
+                  {isCurrentPlan ? t('dashboard.subscription.currentPlan') : t('dashboard.subscription.choosePlan')}
                 </Button>
               </CardContent>
             </Card>
@@ -700,8 +703,8 @@ export default function Dashboard() {
   const renderSettings = () => (
     <Card>
       <CardHeader>
-        <CardTitle>Paramètres</CardTitle>
-        <CardDescription>Personnalisez votre expérience</CardDescription>
+        <CardTitle>{t('dashboard.settings.title')}</CardTitle>
+        <CardDescription>{t('dashboard.settings.description')}</CardDescription>
       </CardHeader>
       <CardContent>
         <form
@@ -714,7 +717,7 @@ export default function Dashboard() {
           {/* Language Settings */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Langue de transcription par défaut
+              {t('dashboard.settings.defaultTranscriptionLanguage')}
             </label>
             <select
               value={dashboardData?.settings?.transcriptionLanguage || 'fr'}
@@ -726,12 +729,12 @@ export default function Dashboard() {
               }
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900"
             >
-              <option value="fr">Français</option>
-              <option value="en">English</option>
-              <option value="es">Español</option>
-              <option value="de">Deutsch</option>
-              <option value="it">Italiano</option>
-              <option value="pt">Português</option>
+              <option value="fr">{t('dashboard.settings.languages.fr')}</option>
+              <option value="en">{t('dashboard.settings.languages.en')}</option>
+              <option value="es">{t('dashboard.settings.languages.es')}</option>
+              <option value="de">{t('dashboard.settings.languages.de')}</option>
+              <option value="it">{t('dashboard.settings.languages.it')}</option>
+              <option value="pt">{t('dashboard.settings.languages.pt')}</option>
             </select>
           </div>
 
@@ -750,7 +753,7 @@ export default function Dashboard() {
                 className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
               />
               <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                Résumer automatiquement les messages vocaux
+                {t('dashboard.settings.autoSummarize')}
               </span>
             </label>
           </div>
@@ -759,7 +762,7 @@ export default function Dashboard() {
           {dashboardData?.settings?.autoSummarize && (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Langue des résumés
+                {t('dashboard.settings.summaryLanguage')}
               </label>
               <select
                 value={dashboardData?.settings?.summaryLanguage || 'same'}
@@ -771,13 +774,13 @@ export default function Dashboard() {
                 }
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900"
               >
-                <option value="same">Même langue que la transcription</option>
-                <option value="fr">Français</option>
-                <option value="en">English</option>
-                <option value="es">Español</option>
-                <option value="de">Deutsch</option>
-                <option value="it">Italiano</option>
-                <option value="pt">Português</option>
+                <option value="same">{t('dashboard.settings.sameAsTranscription')}</option>
+                <option value="fr">{t('dashboard.settings.languages.fr')}</option>
+                <option value="en">{t('dashboard.settings.languages.en')}</option>
+                <option value="es">{t('dashboard.settings.languages.es')}</option>
+                <option value="de">{t('dashboard.settings.languages.de')}</option>
+                <option value="it">{t('dashboard.settings.languages.it')}</option>
+                <option value="pt">{t('dashboard.settings.languages.pt')}</option>
               </select>
             </div>
           )}
@@ -790,10 +793,10 @@ export default function Dashboard() {
               {updateSettingsMutation.isLoading ? (
                 <>
                   <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
-                  Sauvegarde...
+                  {t('dashboard.settings.saving')}
                 </>
               ) : (
-                'Sauvegarder les paramètres'
+                t('dashboard.settings.save')
               )}
             </Button>
           </div>
@@ -865,7 +868,7 @@ export default function Dashboard() {
                         }`}
                       >
                         <item.icon className="h-5 w-5" />
-                        <span className="font-medium">{item.label}</span>
+                        <span className="font-medium">{t(item.label)}</span>
                       </button>
                     </li>
                   ))}
@@ -885,10 +888,13 @@ export default function Dashboard() {
                         {user?.email}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Plan {dashboardData?.subscription?.plan || 'trial'}
+                        {t('dashboard.sidebar.plan')} {dashboardData?.subscription?.plan || 'trial'}
                       </p>
                     </div>
                   </div>
+                </div>
+                <div className="mb-4">
+                  <LanguageSelector />
                 </div>
                 <Button
                   variant="outline"
@@ -896,7 +902,7 @@ export default function Dashboard() {
                   onClick={() => logoutMutation.mutate()}
                 >
                   <LogOut className="h-4 w-4 mr-2" />
-                  Déconnexion
+                  {t('dashboard.sidebar.logout')}
                 </Button>
               </div>
             </div>
@@ -927,35 +933,35 @@ export default function Dashboard() {
       <Modal
         isOpen={!!selectedTranscript}
         onClose={() => setSelectedTranscript(null)}
-        title="Détails de la transcription"
+        title={t('dashboard.transcriptions.details')}
         className="max-w-3xl"
       >
         {selectedTranscript && (
           <div className="space-y-4">
             <div>
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Informations</h4>
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('dashboard.transcriptions.information')}</h4>
               <div className="mt-2 space-y-2">
                 <p className="text-sm">
-                  <span className="font-medium">Numéro:</span> {selectedTranscript.phoneNumber}
+                  <span className="font-medium">{t('dashboard.transcriptions.phoneNumber')}:</span> {selectedTranscript.phoneNumber}
                 </p>
                 <p className="text-sm">
-                  <span className="font-medium">Date:</span>{' '}
+                  <span className="font-medium">{t('dashboard.transcriptions.date')}:</span>{' '}
                   {format(new Date(selectedTranscript.createdAt), 'dd MMMM yyyy à HH:mm', {
                     locale: fr
                   })}
                 </p>
                 <p className="text-sm">
-                  <span className="font-medium">Durée:</span> {selectedTranscript.duration} secondes
+                  <span className="font-medium">{t('dashboard.transcriptions.duration')}:</span> {selectedTranscript.duration} {t('dashboard.transcriptions.seconds')}
                 </p>
                 <p className="text-sm">
-                  <span className="font-medium">Langue:</span> {selectedTranscript.language}
+                  <span className="font-medium">{t('dashboard.transcriptions.language')}:</span> {selectedTranscript.language}
                 </p>
               </div>
             </div>
 
             <div>
               <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Transcription
+                {t('dashboard.transcriptions.transcription')}
               </h4>
               <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
                 <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
@@ -967,7 +973,7 @@ export default function Dashboard() {
             {selectedTranscript.summary && (
               <div>
                 <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Résumé
+                  {t('dashboard.transcriptions.summary')}
                 </h4>
                 <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
                   <p className="text-sm text-gray-700 dark:text-gray-300">
@@ -982,13 +988,13 @@ export default function Dashboard() {
                 variant="outline"
                 onClick={() => {
                   navigator.clipboard.writeText(selectedTranscript.text);
-                  toast.success('Transcription copiée');
+                  toast.success(t('dashboard.transcriptions.copied'));
                 }}
               >
-                Copier le texte
+                {t('dashboard.transcriptions.copyText')}
               </Button>
               <Button onClick={() => setSelectedTranscript(null)}>
-                Fermer
+                {t('dashboard.transcriptions.close')}
               </Button>
             </div>
           </div>

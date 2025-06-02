@@ -5,6 +5,7 @@ const { auth, authorize } = require('../middlewares/auth');
 const User = require('../models/User');
 const LogService = require('../services/LogService');
 const WhatsAppService = require('../services/WhatsAppService');
+const { t } = require('../utils/translate');
 
 // Obtenir le profil de l'utilisateur
 router.get('/profile', auth, async (req, res) => {
@@ -13,7 +14,7 @@ router.get('/profile', auth, async (req, res) => {
         res.json(user);
     } catch (error) {
         LogService.error('Error fetching profile:', { userId: req.user._id, error });
-        res.status(500).json({ error: 'Erreur lors de la récupération du profil' });
+        res.status(500).json({ error: t('users.profile.fetch_error', req) });
     }
 });
 
@@ -24,7 +25,7 @@ router.patch('/profile', auth, async (req, res) => {
     const isValidOperation = updates.every(update => allowedUpdates.includes(update));
 
     if (!isValidOperation) {
-        return res.status(400).json({ error: 'Mises à jour invalides' });
+        return res.status(400).json({ error: t('users.profile.invalid_updates', req) });
     }
 
     try {
@@ -41,7 +42,7 @@ router.patch('/profile', auth, async (req, res) => {
         await user.save();
 
         res.json({
-            message: 'Profil mis à jour avec succès',
+            message: t('users.profile.update_success', req),
             user: {
                 id: user._id,
                 email: user.email,
@@ -51,7 +52,7 @@ router.patch('/profile', auth, async (req, res) => {
         });
     } catch (error) {
         LogService.error('Error updating profile:', { userId: req.user._id, error });
-        res.status(400).json({ error: 'Erreur lors de la mise à jour du profil' });
+        res.status(400).json({ error: t('users.profile.update_error', req) });
     }
 });
 
@@ -62,7 +63,7 @@ router.get('/whatsapp-status', auth, async (req, res) => {
         res.json({ connected: isConnected });
     } catch (error) {
         LogService.error('Error checking WhatsApp status:', { userId: req.user._id, error });
-        res.status(500).json({ error: 'Erreur lors de la vérification du statut WhatsApp' });
+        res.status(500).json({ error: t('users.whatsapp.status_check_error', req) });
     }
 });
 
@@ -70,10 +71,10 @@ router.get('/whatsapp-status', auth, async (req, res) => {
 router.post('/whatsapp-logout', auth, async (req, res) => {
     try {
         await WhatsAppService.logout(req.user._id);
-        res.json({ message: 'Déconnecté de WhatsApp avec succès' });
+        res.json({ message: t('users.whatsapp.logout_success', req) });
     } catch (error) {
         LogService.error('Error logging out of WhatsApp:', { userId: req.user._id, error });
-        res.status(500).json({ error: 'Erreur lors de la déconnexion de WhatsApp' });
+        res.status(500).json({ error: t('users.whatsapp.logout_error', req) });
     }
 });
 
@@ -86,7 +87,7 @@ router.get('/list', auth, authorize(['admin']), async (req, res) => {
         res.json(users);
     } catch (error) {
         LogService.error('Error fetching users list:', { error });
-        res.status(500).json({ error: 'Erreur lors de la récupération de la liste des utilisateurs' });
+        res.status(500).json({ error: t('users.list.fetch_error', req) });
     }
 });
 

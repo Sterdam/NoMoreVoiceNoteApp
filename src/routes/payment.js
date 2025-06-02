@@ -5,6 +5,7 @@ const PaymentService = require('../services/PaymentService');
 const Subscription = require('../models/Subscription');
 const Usage = require('../models/Usage');
 const LogService = require('../services/LogService');
+const { t } = require('../utils/translate');
 
 // Obtenir l'abonnement actuel
 router.get('/subscription', auth, async (req, res) => {
@@ -39,7 +40,7 @@ router.get('/subscription', auth, async (req, res) => {
         });
     } catch (error) {
         LogService.error('Error fetching subscription:', error);
-        res.status(500).json({ error: 'Erreur lors de la récupération de l\'abonnement' });
+        res.status(500).json({ error: t('payment.subscription.fetch_error', req) });
     }
 });
 
@@ -49,7 +50,7 @@ router.post('/create-checkout-session', auth, async (req, res) => {
         const { planId } = req.body;
         
         if (!planId || !Subscription.PLANS[planId] || planId === 'trial') {
-            return res.status(400).json({ error: 'Plan invalide' });
+            return res.status(400).json({ error: t('payment.checkout.invalid_plan', req) });
         }
         
         const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
@@ -65,7 +66,7 @@ router.post('/create-checkout-session', auth, async (req, res) => {
         res.json({ url: session.url });
     } catch (error) {
         LogService.error('Error creating checkout session:', error);
-        res.status(500).json({ error: 'Erreur lors de la création de la session de paiement' });
+        res.status(500).json({ error: t('payment.checkout.session_creation_error', req) });
     }
 });
 
@@ -81,7 +82,7 @@ router.post('/create-portal-session', auth, async (req, res) => {
         res.json({ url: session.url });
     } catch (error) {
         LogService.error('Error creating portal session:', error);
-        res.status(500).json({ error: 'Erreur lors de la création de la session du portail' });
+        res.status(500).json({ error: t('payment.portal.session_creation_error', req) });
     }
 });
 
@@ -93,7 +94,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
     // Verify the request is coming from Stripe
     if (!signature) {
         LogService.warn('Webhook request without signature');
-        return res.status(400).json({ error: 'Missing signature' });
+        return res.status(400).json({ error: t('payment.webhook.missing_signature', req) });
     }
     
     try {
@@ -102,7 +103,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
     } catch (error) {
         LogService.error('Webhook error:', error);
         // Always return 2xx to Stripe to prevent retries for invalid signatures
-        res.status(200).json({ error: 'Webhook processing failed' });
+        res.status(200).json({ error: t('payment.webhook.processing_failed', req) });
     }
 });
 
@@ -114,13 +115,13 @@ router.post('/cancel-subscription', auth, async (req, res) => {
         
         res.json({
             message: immediately 
-                ? 'Abonnement annulé immédiatement' 
-                : 'Abonnement sera annulé à la fin de la période',
+                ? t('payment.subscription.cancelled_immediately', req) 
+                : t('payment.subscription.cancelled_end_period', req),
             subscription
         });
     } catch (error) {
         LogService.error('Error cancelling subscription:', error);
-        res.status(500).json({ error: 'Erreur lors de l\'annulation de l\'abonnement' });
+        res.status(500).json({ error: t('payment.subscription.cancel_error', req) });
     }
 });
 
@@ -136,7 +137,7 @@ router.get('/usage-history', auth, async (req, res) => {
         res.json(usageHistory);
     } catch (error) {
         LogService.error('Error fetching usage history:', error);
-        res.status(500).json({ error: 'Erreur lors de la récupération de l\'historique' });
+        res.status(500).json({ error: t('payment.usage.history_fetch_error', req) });
     }
 });
 

@@ -1,0 +1,482 @@
+{
+  "common": {
+    "close": "Fermer",
+    "save": "Sauvegarder",
+    "cancel": "Annuler",
+    "back": "Retour",
+    "copy": "Copier",
+    "copyText": "Copier le texte",
+    "view": "Voir",
+    "export": "Exporter",
+    "search": "Rechercher...",
+    "refresh": "Rafraîchir",
+    "retry": "Réessayer",
+    "loading": "Chargement...",
+    "saving": "Sauvegarde...",
+    "creating": "Création...",
+    "connecting": "Connexion...",
+    "disconnect": "Déconnecter",
+    "connected": "Connecté",
+    "disconnected": "Déconnecté",
+    "free": "Gratuit",
+    "perMonth": "par mois",
+    "forever": "pour toujours",
+    "popular": "Plus populaire",
+    "recommended": "Recommandé",
+    "start": "Commencer",
+    "contact": "Contacter",
+    "choose": "Choisir ce plan",
+    "current": "Plan actuel",
+    "minutes": "minutes",
+    "seconds": "secondes",
+    "daysRemaining": "jours restants",
+    "transcriptions": "transcriptions",
+    "summaries": "résumés",
+    "remaining": "restants sur",
+    "of": "sur",
+    "plan": "Plan",
+    "logout": "Déconnexion"
+  },
+  "nav": {
+    "login": "Connexion",
+    "register": "Commencer gratuitement",
+    "dashboard": "Tableau de bord",
+    "transcriptions": "Transcriptions",
+    "whatsapp": "WhatsApp",
+    "subscription": "Abonnement",
+    "settings": "Paramètres"
+  },
+  "landing": {
+    "hero": {
+      "title": "Transformez vos notes vocales",
+      "whatsapp": "WhatsApp",
+      "intoText": "en texte",
+      "description": "Plus besoin d'écouter de longues notes vocales. Notre IA transcrit instantanément vos messages WhatsApp avec une précision exceptionnelle.",
+      "tryFree": "Essayer gratuitement",
+      "seeDemo": "Voir la démo",
+      "benefits": "✓ 10 transcriptions gratuites • ✓ Sans carte bancaire",
+      "demoText": "Salut! Je voulais te dire que la réunion de demain est reportée à 15h. N'oublie pas d'apporter les documents..."
+    },
+    "features": {
+      "title": "Pourquoi choisir VoiceNote Pro?",
+      "subtitle": "Des fonctionnalités puissantes pour simplifier votre quotidien",
+      "instant": {
+        "title": "Transcription instantanée",
+        "description": "Recevez vos transcriptions en quelques secondes, directement dans WhatsApp."
+      },
+      "multilingual": {
+        "title": "Support multilingue",
+        "description": "Transcription précise en français, anglais, espagnol et plus de 50 langues."
+      },
+      "security": {
+        "title": "Sécurité maximale",
+        "description": "Vos données sont chiffrées et supprimées après traitement. Confidentialité garantie."
+      },
+      "simple": {
+        "title": "Simple à utiliser",
+        "description": "Envoyez simplement vos notes vocales à notre bot WhatsApp. C'est tout!"
+      },
+      "dashboard": {
+        "title": "Tableau de bord",
+        "description": "Suivez votre utilisation et accédez à l'historique de vos transcriptions."
+      },
+      "timeSaving": {
+        "title": "Gain de temps",
+        "description": "Plus besoin d'écouter des messages de 10 minutes. Lisez en 30 secondes."
+      }
+    },
+    "pricing": {
+      "title": "Tarifs simples et transparents",
+      "subtitle": "Commencez gratuitement, évoluez selon vos besoins",
+      "free": {
+        "title": "Gratuit",
+        "price": "0€",
+        "features": {
+          "transcriptions": "10 transcriptions par mois",
+          "duration": "Messages jusqu'à 5 minutes",
+          "languages": "Français et anglais",
+          "history": "Historique 7 jours"
+        }
+      },
+      "pro": {
+        "title": "Pro",
+        "price": "9,99€",
+        "trial": "Essai gratuit 7 jours",
+        "features": {
+          "transcriptions": "500 transcriptions par mois",
+          "duration": "Messages jusqu'à 30 minutes",
+          "languages": "Toutes les langues",
+          "history": "Historique illimité",
+          "export": "Export PDF/TXT",
+          "support": "Support prioritaire"
+        }
+      },
+      "business": {
+        "title": "Business",
+        "price": "29,99€",
+        "features": {
+          "transcriptions": "Transcriptions illimitées",
+          "duration": "Pas de limite de durée",
+          "api": "API dédiée",
+          "accounts": "Comptes multiples",
+          "billing": "Facturation entreprise",
+          "support": "Support 24/7"
+        }
+      }
+    },
+    "testimonials": {
+      "title": "Ils nous font confiance",
+      "subtitle": "Découvrez ce que nos utilisateurs disent de nous",
+      "testimonial1": {
+        "name": "Marie Laurent",
+        "role": "Chef de projet",
+        "text": "Un gain de temps incroyable! Je peux enfin gérer les notes vocales de mes collègues sans y passer des heures."
+      },
+      "testimonial2": {
+        "name": "Thomas Dubois",
+        "role": "Entrepreneur",
+        "text": "La transcription est d'une précision remarquable. L'outil parfait pour ne rien manquer d'important."
+      },
+      "testimonial3": {
+        "name": "Sophie Martin",
+        "role": "Consultante",
+        "text": "Simple, efficace et sécurisé. Je recommande à tous ceux qui reçoivent beaucoup de notes vocales."
+      }
+    },
+    "cta": {
+      "title": "Prêt à simplifier votre quotidien?",
+      "subtitle": "Rejoignez des milliers d'utilisateurs qui gagnent du temps chaque jour",
+      "button": "Commencer gratuitement",
+      "benefits": "10 transcriptions gratuites • Sans engagement"
+    },
+    "footer": {
+      "description": "La solution de transcription WhatsApp la plus simple et efficace.",
+      "product": {
+        "title": "Produit",
+        "features": "Fonctionnalités",
+        "pricing": "Tarifs",
+        "api": "API"
+      },
+      "support": {
+        "title": "Support",
+        "help": "Centre d'aide",
+        "contact": "Contact",
+        "faq": "FAQ"
+      },
+      "legal": {
+        "title": "Légal",
+        "privacy": "Confidentialité",
+        "terms": "Conditions",
+        "gdpr": "RGPD"
+      },
+      "copyright": "© 2024 VoiceNote Pro. Tous droits réservés."
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Bon retour !",
+      "subtitle": "Connectez-vous pour accéder à vos transcriptions",
+      "email": "Email",
+      "emailPlaceholder": "vous@exemple.com",
+      "password": "Mot de passe",
+      "rememberMe": "Se souvenir de moi",
+      "forgotPassword": "Mot de passe oublié ?",
+      "submit": "Se connecter",
+      "submitting": "Connexion...",
+      "newUser": "Nouveau sur VoxKill ?",
+      "createAccount": "Créer un compte gratuitement",
+      "success": "Connexion réussie !",
+      "error": "Erreur de connexion",
+      "benefits": {
+        "title": "Transformez vos notes vocales en texte",
+        "subtitle": "Transcription rapide et précise de vos messages WhatsApp avec notre IA avancée.",
+        "languages": "Plus de 50 langues supportées",
+        "security": "Sécurité et confidentialité garanties",
+        "summaries": "Résumés intelligents inclus"
+      }
+    },
+    "register": {
+      "title": "Créez votre compte gratuit",
+      "subtitle": "Commencez à transcrire vos notes vocales en quelques secondes",
+      "welcomeTitle": "Commencez gratuitement",
+      "welcomeSubtitle": "Créez votre compte et profitez immédiatement de tous les avantages de VoxKill.",
+      "email": "Adresse email",
+      "emailPlaceholder": "vous@exemple.com",
+      "whatsapp": "Numéro WhatsApp",
+      "whatsappPlaceholder": "+33 6 12 34 56 78",
+      "whatsappHelp": "Format international avec indicatif pays",
+      "password": "Mot de passe",
+      "terms": {
+        "accept": "J'accepte les",
+        "conditions": "conditions d'utilisation",
+        "and": "et la",
+        "privacy": "politique de confidentialité"
+      },
+      "submit": "Créer mon compte gratuit",
+      "submitting": "Création du compte...",
+      "alreadyAccount": "Déjà un compte ?",
+      "login": "Se connecter",
+      "success": "Compte créé avec succès !",
+      "error": "Erreur lors de l'inscription",
+      "stats": {
+        "users": "Déjà plus de 10,000 utilisateurs",
+        "rating": "4.9/5 sur 1,234 avis"
+      },
+      "benefits": [
+        "10 transcriptions gratuites par mois",
+        "Support multilingue (50+ langues)",
+        "Sécurité et confidentialité garanties",
+        "Pas de carte bancaire requise"
+      ]
+    },
+    "validation": {
+      "emailRequired": "Email requis",
+      "emailInvalid": "Email invalide",
+      "passwordRequired": "Mot de passe requis",
+      "passwordMin": "Minimum 6 caractères",
+      "passwordComplex": "Doit contenir majuscule, minuscule et chiffre",
+      "whatsappRequired": "Numéro WhatsApp requis",
+      "whatsappInvalid": "Format invalide (ex: +33612345678)",
+      "termsRequired": "Vous devez accepter les conditions"
+    }
+  },
+  "dashboard": {
+    "overview": {
+      "title": "Tableau de bord",
+      "stats": {
+        "totalTranscriptions": "Transcriptions totales",
+        "minutesTranscribed": "Minutes transcrites",
+        "languagesDetected": "Langues détectées",
+        "whatsappStatus": "Statut WhatsApp"
+      },
+      "charts": {
+        "dailyActivity": "Activité quotidienne",
+        "dailyActivitySubtitle": "Nombre de transcriptions par jour",
+        "languagesChart": "Langues détectées",
+        "languagesChartSubtitle": "Répartition par langue"
+      },
+      "recentTranscriptions": {
+        "title": "Transcriptions récentes",
+        "subtitle": "Vos 5 dernières transcriptions"
+      }
+    },
+    "transcriptions": {
+      "title": "Transcriptions",
+      "searchPlaceholder": "Rechercher...",
+      "filterDates": {
+        "all": "Toutes les dates",
+        "today": "Aujourd'hui",
+        "week": "Cette semaine",
+        "month": "Ce mois"
+      },
+      "summary": "Résumé",
+      "noTranscriptions": "Aucune transcription trouvée",
+      "deleted": "Transcription supprimée",
+      "copied": "Transcription copiée"
+    },
+    "whatsapp": {
+      "title": "Connexion WhatsApp",
+      "connected": "Votre compte WhatsApp est connecté",
+      "notConnected": "Scannez le QR code pour connecter votre compte",
+      "connectedMessage": "WhatsApp est connecté et prêt à recevoir vos notes vocales !",
+      "disconnectButton": "Déconnecter WhatsApp",
+      "disconnected": "Déconnecté de WhatsApp",
+      "instructions": [
+        "1. Ouvrez WhatsApp sur votre téléphone",
+        "2. Allez dans Paramètres → Appareils connectés",
+        "3. Scannez ce QR code"
+      ]
+    },
+    "subscription": {
+      "title": "Plan actuel",
+      "subtitle": "Gérez votre abonnement et votre utilisation",
+      "manageButton": "Gérer l'abonnement",
+      "usage": {
+        "minutes": "Minutes utilisées",
+        "minutesRemaining": "minutes restantes sur",
+        "summaries": "Résumés utilisés",
+        "summariesRemaining": "résumés restants sur"
+      },
+      "features": {
+        "transcriptionHours": "heures de transcription",
+        "summaries": "résumés",
+        "audioDuration": "Audio jusqu'à",
+        "min": "min",
+        "multilingual": "Multi-langues",
+        "priorityProcessing": "Traitement prioritaire"
+      },
+      "paymentSuccess": "Paiement réussi ! Votre abonnement est maintenant actif.",
+      "paymentCancelled": "Paiement annulé."
+    },
+    "settings": {
+      "title": "Paramètres",
+      "subtitle": "Personnalisez votre expérience",
+      "defaultLanguage": "Langue de transcription par défaut",
+      "autoSummary": "Résumer automatiquement les messages vocaux",
+      "summaryLanguage": "Langue des résumés",
+      "summaryLanguageSame": "Même langue que la transcription",
+      "saveButton": "Sauvegarder les paramètres",
+      "saved": "Paramètres sauvegardés"
+    },
+    "transcriptModal": {
+      "title": "Détails de la transcription",
+      "info": "Informations",
+      "number": "Numéro:",
+      "date": "Date:",
+      "duration": "Durée:",
+      "language": "Langue:",
+      "transcription": "Transcription",
+      "summary": "Résumé"
+    }
+  },
+  "privacy": {
+    "title": "Politique de confidentialité",
+    "lastUpdate": "Dernière mise à jour : 1er juin 2025",
+    "sections": {
+      "dataCollection": {
+        "title": "1. Collecte des données",
+        "intro": "Nous collectons les informations suivantes :",
+        "account": "Informations de compte : Email, numéro WhatsApp",
+        "transcription": "Données de transcription : Messages vocaux et leurs transcriptions",
+        "usage": "Données d'utilisation : Logs de connexion, statistiques d'utilisation",
+        "payment": "Données de paiement : Traitées par Stripe (nous ne stockons pas vos informations bancaires)"
+      },
+      "dataUsage": {
+        "title": "2. Utilisation des données",
+        "intro": "Nous utilisons vos données pour :",
+        "items": [
+          "Fournir le service de transcription",
+          "Améliorer la qualité du service",
+          "Communiquer avec vous concernant votre compte",
+          "Assurer la sécurité du service"
+        ]
+      },
+      "storage": {
+        "title": "3. Stockage et sécurité",
+        "content": "Vos données sont stockées de manière sécurisée avec chiffrement. Les messages vocaux sont supprimés après transcription. Les transcriptions sont conservées pour votre historique mais peuvent être supprimées à tout moment depuis votre tableau de bord."
+      },
+      "sharing": {
+        "title": "4. Partage des données",
+        "intro": "Nous ne vendons jamais vos données personnelles. Nous partageons vos données uniquement avec :",
+        "openai": "OpenAI : Pour la transcription (audio uniquement, temporairement)",
+        "stripe": "Stripe : Pour le traitement des paiements",
+        "authorities": "Autorités : Si requis par la loi"
+      },
+      "rights": {
+        "title": "5. Vos droits",
+        "intro": "Vous avez le droit de :",
+        "items": [
+          "Accéder à vos données personnelles",
+          "Corriger vos données",
+          "Supprimer votre compte et toutes vos données",
+          "Exporter vos données",
+          "Vous opposer au traitement"
+        ]
+      },
+      "cookies": {
+        "title": "6. Cookies",
+        "content": "Nous utilisons des cookies essentiels pour le fonctionnement du service (authentification). Ces cookies sont nécessaires et ne peuvent pas être désactivés."
+      },
+      "minors": {
+        "title": "7. Protection des mineurs",
+        "content": "Notre service n'est pas destiné aux personnes de moins de 16 ans. Nous ne collectons pas sciemment de données de mineurs."
+      },
+      "changes": {
+        "title": "8. Modifications",
+        "content": "Nous pouvons mettre à jour cette politique de confidentialité. Vous serez informé de tout changement significatif par email."
+      },
+      "contact": {
+        "title": "9. Contact",
+        "intro": "Pour toute question concernant vos données personnelles :",
+        "email": "privacy@voxkill.com"
+      },
+      "legal": {
+        "title": "10. Base légale",
+        "intro": "Le traitement de vos données est basé sur :",
+        "items": [
+          "Votre consentement",
+          "L'exécution du contrat de service",
+          "Nos intérêts légitimes (sécurité, amélioration du service)"
+        ]
+      }
+    }
+  },
+  "terms": {
+    "title": "Conditions d'utilisation",
+    "lastUpdate": "Dernière mise à jour : 1er juin 2025",
+    "sections": {
+      "acceptance": {
+        "title": "1. Acceptation des conditions",
+        "content": "En utilisant VoxKill, vous acceptez ces conditions d'utilisation. Si vous n'acceptez pas ces conditions, veuillez ne pas utiliser notre service."
+      },
+      "service": {
+        "title": "2. Description du service",
+        "content": "VoxKill est un service de transcription automatique de messages vocaux WhatsApp utilisant l'intelligence artificielle. Le service convertit vos messages audio en texte."
+      },
+      "acceptable": {
+        "title": "3. Utilisation acceptable",
+        "intro": "Vous vous engagez à :",
+        "items": [
+          "Utiliser le service de manière légale et éthique",
+          "Ne pas transcrire de contenu illégal ou protégé par des droits d'auteur sans autorisation",
+          "Respecter la vie privée d'autrui",
+          "Ne pas utiliser le service pour des activités frauduleuses"
+        ]
+      },
+      "account": {
+        "title": "4. Compte utilisateur",
+        "content": "Vous êtes responsable de maintenir la confidentialité de votre compte et mot de passe. Vous acceptez d'être responsable de toutes les activités qui se produisent sous votre compte."
+      },
+      "intellectual": {
+        "title": "5. Propriété intellectuelle",
+        "content": "Le contenu que vous transcrivez reste votre propriété. VoxKill n'acquiert aucun droit sur votre contenu. Vous nous accordez uniquement une licence limitée pour traiter vos fichiers audio aux fins de transcription."
+      },
+      "liability": {
+        "title": "6. Limitation de responsabilité",
+        "content": "VoxKill est fourni \"tel quel\". Nous ne garantissons pas l'exactitude parfaite des transcriptions. Le service peut contenir des erreurs et nous ne sommes pas responsables des dommages résultant de l'utilisation du service."
+      },
+      "pricing": {
+        "title": "7. Tarification et paiement",
+        "content": "Les prix sont indiqués sur notre site. Les abonnements sont renouvelés automatiquement sauf annulation. Vous pouvez annuler à tout moment depuis votre tableau de bord."
+      },
+      "privacy": {
+        "title": "8. Confidentialité",
+        "intro": "Votre utilisation du service est également régie par notre",
+        "link": "Politique de confidentialité"
+      },
+      "changes": {
+        "title": "9. Modifications",
+        "content": "Nous nous réservons le droit de modifier ces conditions à tout moment. Les modifications entrent en vigueur dès leur publication."
+      },
+      "contact": {
+        "title": "10. Contact",
+        "intro": "Pour toute question concernant ces conditions, contactez-nous à :",
+        "email": "legal@voxkill.com"
+      }
+    }
+  },
+  "summaryLevels": {
+    "none": {
+      "title": "Sans résumé",
+      "description": "Transcription uniquement"
+    },
+    "concise": {
+      "title": "Résumé concis",
+      "description": "2-3 phrases essentielles"
+    },
+    "detailed": {
+      "title": "Résumé détaillé",
+      "description": "5-7 phrases structurées"
+    }
+  },
+  "errors": {
+    "title": "Oops! Une erreur s'est produite",
+    "subtitle": "Quelque chose s'est mal passé. Veuillez rafraîchir la page.",
+    "genericTitle": "Une erreur s'est produite",
+    "unknown": "Erreur inconnue"
+  },
+  "languages": {
+    "fr": "Français",
+    "en": "English"
+  }
+}

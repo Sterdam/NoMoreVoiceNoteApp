@@ -26,6 +26,7 @@
     "ffmpeg-static": "^5.2.0",
     "form-data": "^4.0.0",
     "helmet": "^7.0.0",
+    "i18n": "^0.15.1",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^7.6.3",
     "node-cache": "^5.1.2",

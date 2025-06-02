@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { Mail, Lock, Eye, EyeOff, Mic, ArrowRight, MessageSquare } from 'lucide-react';
 import { auth } from '../utils/api';
 import { useAuthStore } from '../stores/useStore';
@@ -10,6 +11,7 @@ import { Input } from '../components/ui/Input';
 import { useToast } from '../hooks/useToast';
 
 export default function Login() {
+  const { t } = useTranslation();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -28,11 +30,11 @@ export default function Login() {
       const response = await auth.login(data);
       if (response.user && response.token) {
         login(response.user, response.token);
-        toast.success('Connexion réussie !');
+        toast.success(t('auth.login.loginSuccess'));
         navigate('/dashboard');
       }
     } catch (error) {
-      toast.error(error.message || 'Erreur de connexion');
+      toast.error(error.message || t('auth.login.loginError'));
     } finally {
       setLoading(false);
     }
@@ -56,10 +58,10 @@ export default function Login() {
               </span>
             </Link>
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
-              Bon retour !
+              {t('auth.login.welcomeBack')}
             </h2>
             <p className="mt-2 text-gray-600 dark:text-gray-400">
-              Connectez-vous pour accéder à vos transcriptions
+              {t('auth.login.subtitle')}
             </p>
           </div>
 
@@ -67,7 +69,7 @@ export default function Login() {
             <div className="space-y-4">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Email
+                  {t('auth.login.email')}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -77,13 +79,13 @@ export default function Login() {
                     id="email"
                     type="email"
                     autoComplete="email"
-                    placeholder="vous@exemple.com"
+                    placeholder={t('auth.login.emailPlaceholder')}
                     className="pl-10"
                     {...register('email', {
-                      required: 'Email requis',
+                      required: t('auth.validation.emailRequired'),
                       pattern: {
                         value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                        message: 'Email invalide'
+                        message: t('auth.validation.emailInvalid')
                       }
                     })}
                     error={errors.email?.message}
@@ -93,7 +95,7 @@ export default function Login() {
 
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Mot de passe
+                  {t('auth.login.password')}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -103,13 +105,13 @@ export default function Login() {
                     id="password"
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
-                    placeholder="••••••••"
+                    placeholder={t('auth.login.passwordPlaceholder')}
                     className="pl-10 pr-10"
                     {...register('password', {
-                      required: 'Mot de passe requis',
+                      required: t('auth.validation.passwordRequired'),
                       minLength: {
                         value: 6,
-                        message: 'Minimum 6 caractères'
+                        message: t('auth.validation.passwordMinLength')
                       }
                     })}
                     error={errors.password?.message}
@@ -136,14 +138,14 @@ export default function Login() {
                   className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
                 />
                 <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
-                  Se souvenir de moi
+                  {t('auth.login.rememberMe')}
                 </span>
               </label>
               <Link
                 to="/forgot-password"
                 className="text-sm text-primary-600 hover:text-primary-500"
               >
-                Mot de passe oublié ?
+                {t('auth.login.forgotPassword')}
               </Link>
             </div>
 
@@ -159,11 +161,11 @@ export default function Login() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Connexion...
+                  {t('auth.login.loggingIn')}
                 </span>
               ) : (
                 <span className="flex items-center">
-                  Se connecter
+                  {t('auth.login.loginButton')}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </span>
               )}
@@ -175,7 +177,7 @@ export default function Login() {
               </div>
               <div className="relative flex justify-center text-sm">
                 <span className="px-2 bg-white dark:bg-gray-900 text-gray-500">
-                  Nouveau sur VoxKill ?
+                  {t('auth.login.newToVoxKill')}
                 </span>
               </div>
             </div>
@@ -185,7 +187,7 @@ export default function Login() {
                 to="/register"
                 className="text-primary-600 hover:text-primary-500 font-medium"
               >
-                Créer un compte gratuitement
+                {t('auth.login.createAccount')}
               </Link>
             </div>
           </form>
@@ -204,29 +206,29 @@ export default function Login() {
               className="text-white max-w-lg"
             >
               <h3 className="text-4xl font-bold mb-6">
-                Transformez vos notes vocales en texte
+                {t('auth.login.heroTitle')}
               </h3>
               <p className="text-xl mb-8 text-primary-100">
-                Transcription rapide et précise de vos messages WhatsApp avec notre IA avancée.
+                {t('auth.login.heroSubtitle')}
               </p>
               <div className="space-y-4">
                 <div className="flex items-center">
                   <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center mr-4">
                     <Mic className="h-6 w-6" />
                   </div>
-                  <p className="text-lg">Plus de 50 langues supportées</p>
+                  <p className="text-lg">{t('auth.login.feature1')}</p>
                 </div>
                 <div className="flex items-center">
                   <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center mr-4">
                     <Lock className="h-6 w-6" />
                   </div>
-                  <p className="text-lg">Sécurité et confidentialité garanties</p>
+                  <p className="text-lg">{t('auth.login.feature2')}</p>
                 </div>
                 <div className="flex items-center">
                   <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center mr-4">
                     <MessageSquare className="h-6 w-6" />
                   </div>
-                  <p className="text-lg">Résumés intelligents inclus</p>
+                  <p className="text-lg">{t('auth.login.feature3')}</p>
                 </div>
               </div>
             </motion.div>

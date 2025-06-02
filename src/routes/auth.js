@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const { auth } = require('../middlewares/auth');
 const LogService = require('../services/LogService');
 const { validate, registrationValidation, loginValidation } = require('../middlewares/validation');
+const { t } = require('../utils/translate');
 
 // Chargement des modèles avec gestion d'erreur
 let User, Subscription;
@@ -32,7 +33,7 @@ router.post('/register', validate(registrationValidation), asyncHandler(async (r
             states: { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' }
         });
         return res.status(503).json({
-            error: 'Service temporairement indisponible. Veuillez réessayer.'
+            error: t('errors.serviceUnavailable', req)
         });
     }
     
@@ -75,8 +76,8 @@ router.post('/register', validate(registrationValidation), asyncHandler(async (r
             }
             return res.status(400).json({
                 error: existingUser.email === email.toLowerCase() 
-                    ? 'Cette adresse email est déjà utilisée'
-                    : 'Ce numéro WhatsApp est déjà utilisé'
+                    ? t('errors.emailAlreadyUsed', req)
+                    : t('errors.whatsappAlreadyUsed', req)
             });
         }
 
@@ -189,7 +190,7 @@ router.post('/register', validate(registrationValidation), asyncHandler(async (r
         // Réponse de succès
         res.status(201).json({
             success: true,
-            message: 'Inscription réussie',
+            message: t('success.registrationSuccess', req),
             user: {
                 id: user._id,
                 email: user.email,
@@ -235,7 +236,7 @@ router.post('/register', validate(registrationValidation), asyncHandler(async (r
             const errors = Object.values(error.errors).map(err => err.message);
             return res.status(400).json({
                 success: false,
-                error: 'Données invalides',
+                error: t('errors.invalidData', req),
                 details: errors
             });
         }
@@ -245,8 +246,8 @@ router.post('/register', validate(registrationValidation), asyncHandler(async (r
             return res.status(400).json({
                 success: false,
                 error: field === 'email' 
-                    ? 'Cette adresse email est déjà utilisée'
-                    : 'Ce numéro WhatsApp est déjà utilisé'
+                    ? t('errors.emailAlreadyUsed', req)
+                    : t('errors.whatsappAlreadyUsed', req)
             });
         }
 
@@ -254,7 +255,7 @@ router.post('/register', validate(registrationValidation), asyncHandler(async (r
         if (process.env.NODE_ENV === 'development') {
             return res.status(500).json({
                 success: false,
-                error: 'Erreur interne du serveur',
+                error: t('errors.internalServerError', req),
                 details: error.message,
                 stack: error.stack
             });
@@ -262,7 +263,7 @@ router.post('/register', validate(registrationValidation), asyncHandler(async (r
 
         res.status(500).json({
             success: false,
-            error: 'Erreur interne du serveur. Veuillez réessayer.'
+            error: t('errors.internalServerErrorRetry', req)
         });
 
     } finally {
@@ -304,7 +305,7 @@ router.post('/login', validate(loginValidation), async (req, res) => {
 
         res.json({
             success: true,
-            message: 'Connexion réussie',
+            message: t('success.loginSuccess', req),
             user: {
                 id: user._id,
                 email: user.email,
@@ -324,7 +325,7 @@ router.post('/login', validate(loginValidation), async (req, res) => {
         
         res.status(401).json({
             success: false,
-            error: 'Email ou mot de passe incorrect'
+            error: t('errors.invalidCredentials', req)
         });
     }
 });
@@ -346,7 +347,7 @@ router.post('/logout', auth, async (req, res) => {
         
         res.json({ 
             success: true,
-            message: 'Déconnexion réussie' 
+            message: t('success.logoutSuccess', req) 
         });
 
     } catch (error) {
@@ -357,7 +358,7 @@ router.post('/logout', auth, async (req, res) => {
         
         res.status(500).json({ 
             success: false,
-            error: 'Erreur lors de la déconnexion' 
+            error: t('errors.logoutError', req) 
         });
     }
 });
@@ -369,7 +370,7 @@ router.get('/status', auth, async (req, res) => {
         if (!user || !user.isActive) {
             return res.status(401).json({
                 success: false,
-                error: 'Utilisateur non trouvé ou inactif'
+                error: t('errors.userNotFound', req)
             });
         }
 
@@ -393,7 +394,7 @@ router.get('/status', auth, async (req, res) => {
         
         res.status(500).json({
             success: false,
-            error: 'Erreur interne du serveur'
+            error: t('errors.internalServerError', req)
         });
     }
 });
