@@ -36,7 +36,14 @@ const connectDB = async (additionalOptions = {}) => {
             LogService.info('Connexion MongoDB établie');
         });
 
-        const conn = await mongoose.connect(mongoURI, options);
+        // En développement, activer la création automatique des index
+        if (process.env.NODE_ENV === 'development') {
+            mongoose.set('autoIndex', true);
+        } else {
+            mongoose.set('autoIndex', false);
+        }
+        
+        await mongoose.connect(mongoURI, options);
         LogService.info('✅ Connexion MongoDB établie');
 
         return mongoose.connection;

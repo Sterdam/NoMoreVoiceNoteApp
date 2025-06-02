@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 
@@ -7,21 +7,31 @@ const userSchema = new mongoose.Schema({
     email: {
         type: String,
         required: [true, 'Email requis'],
+        unique: true,
         trim: true,
         lowercase: true,
-        unique: true,
-        index: true
+        validate: {
+            validator: function(email) {
+                return /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(email);
+            },
+            message: 'Format d\'email invalide'
+        }
     },
     password: {
         type: String,
         required: [true, 'Mot de passe requis'],
-        minlength: 8
+        minlength: [8, 'Le mot de passe doit contenir au moins 8 caractères']
     },
     whatsappNumber: {
         type: String,
         required: [true, 'Numéro WhatsApp requis'],
         unique: true,
-        index: true
+        validate: {
+            validator: function(phone) {
+                return /^\+[1-9]\d{1,14}$/.test(phone);
+            },
+            message: 'Format de numéro WhatsApp invalide'
+        }
     },
     isActive: {
         type: Boolean,
@@ -71,8 +81,7 @@ const userSchema = new mongoose.Schema({
         }
     },
     encryptionKey: {
-        type: String,
-        required: true
+        type: String
     },
     lastLogin: Date,
     apiKey: {
@@ -106,27 +115,27 @@ const userSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Indexes
-userSchema.index({ email: 1 }, { unique: true });
-userSchema.index({ whatsappNumber: 1 }, { unique: true });
-userSchema.index({ apiKey: 1 }, { sparse: true });
-userSchema.index({ referralCode: 1 }, { sparse: true });
-
 // Instance methods
 userSchema.methods.generateAuthToken = function() {
+    const payload = {
+        id: this._id.toString(),
+        email: this.email,
+        role: this.role
+    };
+    
     return jwt.sign(
-        { 
-            id: this._id, 
-            email: this.email, 
-            role: this.role 
-        },
-        process.env.JWT_SECRET || 'your-secret-key',
+        payload,
+        process.env.JWT_SECRET || 'default-secret-key',
         { expiresIn: '24h' }
     );
 };
 
 userSchema.methods.comparePassword = async function(password) {
-    return bcrypt.compare(password, this.password);
+    try {
+        return await bcrypt.compare(password, this.password);
+    } catch (error) {
+        return false;
+    }
 };
 
 userSchema.methods.generateReferralCode = function() {
@@ -172,14 +181,20 @@ userSchema.methods.toJSON = function() {
 
 // Static methods
 userSchema.statics.findByCredentials = async function(email, password) {
-    const user = await this.findOne({ email: email.toLowerCase(), isActive: true });
+    const user = await this.findOne({ 
+        email: email.toLowerCase(), 
+        isActive: true 
+    });
+    
     if (!user) {
         throw new Error('Invalid credentials');
     }
+    
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
         throw new Error('Invalid credentials');
     }
+    
     return user;
 };
 
@@ -191,29 +206,48 @@ userSchema.statics.findByReferralCode = async function(referralCode) {
     return this.findOne({ referralCode: referralCode.toUpperCase() });
 };
 
-// Pre-save hook
+// Pre-save middleware
 userSchema.pre('save', async function(next) {
-    const user = this;
-    
-    // Hash password if modified
-    if (user.isModified('password')) {
-        user.password = await bcrypt.hash(user.password, 12);
+    try {
+        // Hash password if modified
+        if (this.isModified('password')) {
+            const saltRounds = 12;
+            this.password = await bcrypt.hash(this.password, saltRounds);
+        }
+        
+        // Generate encryption key if not present
+        if (!this.encryptionKey) {
+            this.encryptionKey = crypto.randomBytes(32).toString('hex');
+        }
+        
+        // Generate referral code if not present
+        if (!this.referralCode) {
+            this.referralCode = crypto.randomBytes(4).toString('hex').toUpperCase();
+        }
+        
+        next();
+    } catch (error) {
+        next(error);
     }
-    
-    // Generate encryption key if not present
-    if (!user.encryptionKey) {
-        user.encryptionKey = crypto.randomBytes(32).toString('hex');
-    }
-    
-    // Generate referral code if not present
-    if (!user.referralCode) {
-        user.referralCode = user.generateReferralCode();
-    }
-    
-    next();
 });
 
-// Ensure we don't create duplicate model
-const User = mongoose.models.User || mongoose.model('User', userSchema);
+// Error handling middleware
+userSchema.post('save', function(error, _doc, next) {
+    if (error.name === 'MongoServerError' && error.code === 11000) {
+        const field = Object.keys(error.keyPattern || {})[0];
+        if (field === 'email') {
+            next(new Error('Cette adresse email est déjà utilisée'));
+        } else if (field === 'whatsappNumber') {
+            next(new Error('Ce numéro WhatsApp est déjà utilisé'));
+        } else {
+            next(new Error('Une valeur unique est déjà utilisée'));
+        }
+    } else {
+        next(error);
+    }
+});
+
+// Create model
+const User = mongoose.model('User', userSchema);
 
 module.exports = User;

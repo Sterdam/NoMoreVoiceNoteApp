@@ -70,7 +70,11 @@ async function initializeDatabase() {
           if (error.code === 85 || error.code === 86) {
             LogService.info(`Index ${index.name} existe déjà`);
           } else if (error.code !== 11000) {
-            LogService.warn(`Erreur création index ${index.name}:`, error.message);
+            LogService.warn(`Erreur création index ${index.name}:`, {
+              message: error.message,
+              code: error.code,
+              codeName: error.codeName
+            });
           }
         }
       }
