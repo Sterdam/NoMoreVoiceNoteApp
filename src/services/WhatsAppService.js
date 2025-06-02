@@ -349,12 +349,14 @@ class WhatsAppService {
         try {
             if (this.clients.has(userId)) {
                 const existingClient = this.clients.get(userId);
-                if (existingClient.isConnected) {
+                const state = await existingClient.getState();
+                if (state === 'CONNECTED') {
+                    LogService.info('Client already connected for user:', { userId });
                     return true;
                 }
                 await this.logout(userId);
             }
-
+    
             const client = new Client({
                 authStrategy: new LocalAuth({ 
                     clientId: userId.toString(),
@@ -370,14 +372,26 @@ class WhatsAppService {
                         '--disable-extensions',
                         '--disable-accelerated-2d-canvas',
                         '--no-first-run',
-                        '--no-zygote'
-                    ]
+                        '--no-zygote',
+                        '--disable-web-security',
+                        '--disable-features=IsolateOrigins,site-per-process'
+                    ],
+                    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
                 }
             });
-
-            // Event handlers
+    
+            // IMPORTANT: Stocker le client AVANT l'initialisation
+            this.clients.set(userId, client);
+    
+            // Event: Loading screen (nouveau dans la dernière version)
+            client.on('loading_screen', (percent, message) => {
+                LogService.info('WhatsApp loading:', { userId, percent, message });
+            });
+    
+            // Event: QR Code
             client.on('qr', async (qr) => {
                 try {
+                    LogService.info('QR Code received for user:', { userId });
                     const qrImage = await qrcode.toDataURL(qr, {
                         width: 300,
                         margin: 2,
@@ -387,12 +401,33 @@ class WhatsAppService {
                         }
                     });
                     this.pendingQRs.set(userId, qrImage.split(',')[1]);
-                    LogService.info('QR Code generated for user:', { userId });
+                    
+                    // Sauvegarder dans Redis pour récupération rapide
+                    if (this.redis) {
+                        await this.redis.setEx(
+                            `whatsapp:qr:${userId}`,
+                            300, // 5 minutes
+                            qrImage.split(',')[1]
+                        );
+                    }
                 } catch (error) {
                     LogService.error('Error generating QR code:', { userId, error });
                 }
             });
-
+    
+            // Event: Authenticated
+            client.on('authenticated', async () => {
+                LogService.info('WhatsApp authenticated for user:', { userId });
+                this.pendingQRs.delete(userId);
+                await this.saveSessionToRedis(userId, 'authenticated');
+                
+                // Supprimer le QR de Redis
+                if (this.redis) {
+                    await this.redis.del(`whatsapp:qr:${userId}`);
+                }
+            });
+    
+            // Event: Ready
             client.on('ready', async () => {
                 LogService.info('WhatsApp client ready for user:', { userId });
                 this.pendingQRs.delete(userId);
@@ -420,13 +455,8 @@ class WhatsAppService {
                     LogService.debug('Could not send welcome message');
                 }
             });
-
-            client.on('authenticated', async () => {
-                LogService.info('WhatsApp authenticated for user:', { userId });
-                this.pendingQRs.delete(userId);
-                await this.saveSessionToRedis(userId, 'authenticated');
-            });
-
+    
+            // Event: Message
             client.on('message', async (message) => {
                 try {
                     if (message.hasMedia && message.type === 'ptt') {
@@ -442,46 +472,105 @@ class WhatsAppService {
                     LogService.error('Message handling error:', error);
                 }
             });
-
-            client.on('auth_failure', async () => {
-                LogService.warn('WhatsApp authentication failed for user:', { userId });
+    
+            // Event: Auth failure
+            client.on('auth_failure', async (msg) => {
+                LogService.warn('WhatsApp authentication failed for user:', { userId, msg });
                 this.pendingQRs.delete(userId);
                 await this.removeSessionFromRedis(userId);
-                this.logout(userId);
+                
+                // Nettoyer et réessayer
+                setTimeout(() => {
+                    this.logout(userId);
+                }, 1000);
             });
             
+            // Event: Disconnected
             client.on('disconnected', async (reason) => {
                 LogService.warn('WhatsApp disconnected:', { userId, reason });
                 await this.saveSessionToRedis(userId, 'disconnected');
-                this.scheduleReconnect(userId);
+                
+                // Ne pas reconnecter automatiquement si déconnexion volontaire
+                if (reason !== 'LOGOUT') {
+                    this.scheduleReconnect(userId);
+                }
             });
-
+    
+            // Event: Change state
+            client.on('change_state', state => {
+                LogService.info('WhatsApp state changed:', { userId, state });
+            });
+    
+            // Initialiser le client
+            LogService.info('Initializing WhatsApp client for user:', { userId });
             await client.initialize();
-            this.clients.set(userId, client);
+            
             return true;
-
+    
         } catch (error) {
             LogService.error('Error creating WhatsApp session:', { userId, error });
+            
+            // Nettoyer en cas d'erreur
+            this.clients.delete(userId);
+            this.pendingQRs.delete(userId);
+            
             throw error;
         }
     }
-
+    
+    // Améliorer aussi la méthode getQRCode :
     async getQRCode(userId) {
         try {
-            if (!this.clients.has(userId)) {
-                await this.createUserSession(userId);
+            // Vérifier d'abord dans le cache
+            const cachedQR = this.pendingQRs.get(userId);
+            if (cachedQR) {
+                LogService.info('Returning cached QR for user:', { userId });
+                return cachedQR;
             }
-            return this.pendingQRs.get(userId);
+    
+            // Vérifier dans Redis
+            if (this.redis) {
+                const redisQR = await this.redis.get(`whatsapp:qr:${userId}`);
+                if (redisQR) {
+                    LogService.info('Returning Redis QR for user:', { userId });
+                    return redisQR;
+                }
+            }
+    
+            // Si pas de client, créer un nouveau
+            if (!this.clients.has(userId)) {
+                LogService.info('Creating new WhatsApp session for user:', { userId });
+                await this.createUserSession(userId);
+                
+                // Attendre un peu que le QR soit généré
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+            
+            // Retourner le QR s'il a été généré
+            return this.pendingQRs.get(userId) || null;
+            
         } catch (error) {
             LogService.error('Error getting QR code:', { userId, error });
             throw error;
         }
     }
-
+    
+    // Améliorer la méthode isConnected :
     async isConnected(userId) {
         try {
             const client = this.clients.get(userId);
-            return client?.isConnected || false;
+            if (!client) {
+                return false;
+            }
+            
+            // Vérifier l'état du client
+            try {
+                const state = await client.getState();
+                return state === 'CONNECTED';
+            } catch (error) {
+                // Si erreur, le client n'est probablement pas connecté
+                return false;
+            }
         } catch (error) {
             LogService.error('Error checking connection:', { userId, error });
             return false;

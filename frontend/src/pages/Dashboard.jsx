@@ -26,7 +26,6 @@ import { Modal } from '../components/ui/Modal';
 import { LoadingSpinner, LoadingSkeleton } from '../components/ui/LoadingSpinner';
 import { useToast } from '../hooks/useToast';
 import { SummaryLevelSelector } from '../components/SummaryLevelSelector';
-import { Logo } from '../components/Logo';
 
 
 // Stores
@@ -79,10 +78,10 @@ export default function Dashboard() {
     queryKey: ['dashboard'],
     queryFn: async () => {
       const [status, subscription, profile, transcripts] = await Promise.all([
-        axios.get('/api/users/whatsapp-status'),
-        axios.get('/api/payment/subscription'),
-        axios.get('/api/users/profile'),
-        axios.get('/api/transcripts?limit=1000') // Récupérer les transcriptions pour calculer les stats
+        axios.get('/users/whatsapp-status'),
+        axios.get('/payment/subscription'),
+        axios.get('/users/profile'),
+        axios.get('/transcripts?limit=1000') // Récupérer les transcriptions pour calculer les stats
       ]);
       
       // Calculer les stats côté client
@@ -127,7 +126,7 @@ export default function Dashboard() {
             break;
         }
       }
-      const response = await axios.get('/api/transcripts', { params });
+      const response = await axios.get('/transcripts', { params });
       setTranscripts(response.data.transcripts);
       return response.data.transcripts;
     },
@@ -137,7 +136,7 @@ export default function Dashboard() {
   const { data: qrCode } = useQuery({
     queryKey: ['whatsapp-qr'],
     queryFn: async () => {
-      const response = await axios.get('/api/transcripts/whatsapp-qr');
+      const response = await axios.get('/transcripts/whatsapp-qr');
       return response.data;
     },
     enabled: activeSection === 'whatsapp' && !dashboardData?.whatsappStatus?.connected,
@@ -149,7 +148,7 @@ export default function Dashboard() {
 
   // Mutations
   const logoutMutation = useMutation({
-    mutationFn: () => axios.post('/api/auth/logout'),
+    mutationFn: () => axios.post('/auth/logout'),
     onSuccess: () => {
       logout();
       navigate('/login');
@@ -157,7 +156,7 @@ export default function Dashboard() {
   });
 
   const whatsappLogoutMutation = useMutation({
-    mutationFn: () => axios.post('/api/users/whatsapp-logout'),
+    mutationFn: () => axios.post('/users/whatsapp-logout'),
     onSuccess: () => {
       queryClient.invalidateQueries(['dashboard']);
       queryClient.invalidateQueries(['whatsapp-qr']);
@@ -166,7 +165,7 @@ export default function Dashboard() {
   });
 
   const deleteTranscriptMutation = useMutation({
-    mutationFn: (id) => axios.delete(`/api/transcripts/${id}`),
+    mutationFn: (id) => axios.delete(`/transcripts/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries(['transcripts']);
       toast.success(t('dashboard.transcriptions.deleted'));
@@ -174,7 +173,7 @@ export default function Dashboard() {
   });
 
   const updateSettingsMutation = useMutation({
-    mutationFn: (settings) => axios.patch('/api/users/profile', { settings }),
+    mutationFn: (settings) => axios.patch('/users/profile', { settings }),
     onSuccess: () => {
       queryClient.invalidateQueries(['dashboard']);
       toast.success(t('dashboard.settings.saved'));
@@ -575,7 +574,7 @@ export default function Dashboard() {
               <Button
                 variant="outline"
                 onClick={async () => {
-                  const response = await axios.post('/api/payment/create-portal-session');
+                  const response = await axios.post('/payment/create-portal-session');
                   window.location.href = response.data.url;
                 }}
               >
@@ -701,7 +700,7 @@ export default function Dashboard() {
                   className="w-full"
                   disabled={isCurrentPlan}
                   onClick={async () => {
-                    const response = await axios.post('/api/payment/create-checkout-session', {
+                    const response = await axios.post('/payment/create-checkout-session', {
                       planId: planKey
                     });
                     window.location.href = response.data.url;
@@ -997,7 +996,7 @@ const renderSettings = () => (
           <div className="mt-6">
             <Button
               onClick={async () => {
-                const response = await axios.post('/api/payment/create-checkout-session', {
+                const response = await axios.post('/payment/create-checkout-session', {
                   planId: 'pro'
                 });
                 window.location.href = response.data.url;
@@ -1044,7 +1043,10 @@ const renderSettings = () => (
             <div className="flex flex-col h-full">
               <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex items-center">
-                  <Logo size="md" />
+                  <Mic className="h-8 w-8 text-primary-600" />
+                  <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">
+                    VoxKill
+                  </span>
                 </div>
                 <button
                   onClick={toggleTheme}
