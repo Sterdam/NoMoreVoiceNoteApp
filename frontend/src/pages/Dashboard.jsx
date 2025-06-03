@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
@@ -13,8 +14,6 @@ import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart as RePieChart, 
   Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
-import { fr } from 'date-fns/locale';
 
 // Components
 import { Button } from '../components/ui/Button';
@@ -39,23 +38,67 @@ const sidebarItems = [
   { icon: Settings, label: 'dashboard.sidebar.settings', path: 'settings' },
 ];
 
+// Helper function to format dates
+const formatDate = (date, formatStr) => {
+  const d = new Date(date);
+  if (formatStr === 'dd MMM') {
+    const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+    return `${d.getDate()} ${months[d.getMonth()]}`;
+  } else if (formatStr === 'dd MMM yyyy à HH:mm' || formatStr === 'dd MMMM yyyy à HH:mm') {
+    const months = formatStr.includes('MMMM') 
+      ? ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
+      : ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+    const hours = d.getHours().toString().padStart(2, '0');
+    const minutes = d.getMinutes().toString().padStart(2, '0');
+    return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} à ${hours}:${minutes}`;
+  }
+  return d.toLocaleDateString();
+};
+
+// Helper to get date ranges
+const subDays = (date, days) => {
+  const d = new Date(date);
+  d.setDate(d.getDate() - days);
+  return d;
+};
+
+const startOfMonth = (date) => {
+  const d = new Date(date);
+  d.setDate(1);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
 export default function Dashboard() {
   const { t } = useTranslation();
-  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [urlParams, setUrlParams] = useState({});
   const [activeSection, setActiveSection] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTranscript, setSelectedTranscript] = useState(null);
   const [dateFilter, setDateFilter] = useState('all');
-  const [qrRetryCount, setQrRetryCount] = useState(0);
+  const [whatsappStatus, setWhatsappStatus] = useState('disconnected');
+  const [qrCode, setQrCode] = useState(null);
+  const [qrLoading, setQrLoading] = useState(false);
+  const qrPollingInterval = useRef(null);
   
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const toast = useToast();
   
   const { user, logout } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
   const { setTranscripts } = useTranscriptStore();
+
+  // Get URL params on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paramsObj = {};
+    for (const [key, value] of params.entries()) {
+      paramsObj[key] = value;
+    }
+    setUrlParams(paramsObj);
+  }, []);
 
   // Apply theme
   useEffect(() => {
@@ -64,14 +107,140 @@ export default function Dashboard() {
 
   // Handle payment return
   useEffect(() => {
-    const payment = searchParams.get('payment');
+    const payment = urlParams.payment;
     if (payment === 'success') {
       toast.success(t('dashboard.payment.success'));
       setActiveSection('subscription');
     } else if (payment === 'cancelled') {
       toast.error(t('dashboard.payment.cancelled'));
     }
-  }, [searchParams]);
+  }, [urlParams]);
+
+  // Clean up polling on unmount
+  useEffect(() => {
+    return () => {
+      if (qrPollingInterval.current) {
+        clearInterval(qrPollingInterval.current);
+      }
+    };
+  }, []);
+
+  // Function to check WhatsApp status
+  const checkWhatsAppStatus = async () => {
+    try {
+      console.log('Checking WhatsApp status...');
+      const response = await axios.get('/users/whatsapp-status');
+      console.log('WhatsApp status response:', response.data);
+      const isConnected = response.data.connected;
+      setWhatsappStatus(isConnected ? 'connected' : 'disconnected');
+      
+      // If connected, clear QR code and stop polling
+      if (isConnected) {
+        setQrCode(null);
+        if (qrPollingInterval.current) {
+          clearInterval(qrPollingInterval.current);
+          qrPollingInterval.current = null;
+        }
+      }
+      
+      return isConnected;
+    } catch (error) {
+      console.error('Error checking WhatsApp status:', error);
+      console.error('Status check error details:', {
+        message: error.message,
+        response: error.response,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      return false;
+    }
+  };
+
+  // Function to fetch QR code
+  const fetchQRCode = async () => {
+    try {
+      setQrLoading(true);
+      console.log('Fetching QR code...');
+      console.log('Current axios defaults:', axios.defaults);
+      console.log('Cookies:', document.cookie);
+      const response = await axios.get('/transcripts/whatsapp-qr');
+      console.log('QR response:', response.data);
+      
+      if (response.data.status === 'connected') {
+        setWhatsappStatus('connected');
+        setQrCode(null);
+        if (qrPollingInterval.current) {
+          clearInterval(qrPollingInterval.current);
+          qrPollingInterval.current = null;
+        }
+        queryClient.invalidateQueries(['dashboard']);
+      } else if (response.data.qr) {
+        setQrCode(response.data.qr);
+        setWhatsappStatus('pending');
+      } else if (response.data.status === 'pending') {
+        // Keep polling if QR is being generated
+        if (!qrPollingInterval.current) {
+          startQRPolling();
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching QR code:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      toast.error(t('dashboard.whatsapp.qrGenerationError'));
+    } finally {
+      setQrLoading(false);
+    }
+  };
+
+  // Function to start polling for QR code
+  const startQRPolling = () => {
+    if (qrPollingInterval.current) {
+      clearInterval(qrPollingInterval.current);
+    }
+    
+    // Poll every 3 seconds
+    qrPollingInterval.current = setInterval(async () => {
+      try {
+        const response = await axios.get('/transcripts/whatsapp-qr');
+        
+        if (response.data.status === 'connected') {
+          setWhatsappStatus('connected');
+          setQrCode(null);
+          clearInterval(qrPollingInterval.current);
+          qrPollingInterval.current = null;
+          queryClient.invalidateQueries(['dashboard']);
+          toast.success(t('dashboard.whatsapp.connected'));
+        } else if (response.data.qr) {
+          setQrCode(response.data.qr);
+          setWhatsappStatus('pending');
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
+      }
+    }, 3000);
+  };
+
+  // Effect to handle WhatsApp section
+  useEffect(() => {
+    if (activeSection === 'whatsapp') {
+      checkWhatsAppStatus().then(isConnected => {
+        if (!isConnected) {
+          fetchQRCode();
+        }
+      });
+    } else {
+      // Clear polling when leaving WhatsApp section
+      if (qrPollingInterval.current) {
+        clearInterval(qrPollingInterval.current);
+        qrPollingInterval.current = null;
+      }
+    }
+  }, [activeSection]);
 
   // Queries
   const { data: dashboardData, isLoading: loadingDashboard } = useQuery({
@@ -95,6 +264,8 @@ export default function Dashboard() {
         daily: [],
         hourly: []
       };
+      
+      setWhatsappStatus(status.data.connected ? 'connected' : 'disconnected');
       
       return {
         whatsappStatus: status.data,
@@ -132,53 +303,43 @@ export default function Dashboard() {
     enabled: activeSection === 'transcripts'
   });
 
-  // WhatsApp QR Code Query
-  const { data: qrData, isLoading: qrLoading, refetch: refetchQR } = useQuery({
-    queryKey: ['whatsapp-qr', qrRetryCount],
-    queryFn: async () => {
-      console.log('Fetching QR code...');
-      const response = await axios.get('/transcripts/whatsapp-qr');
-      console.log('QR response:', response.data);
-      return response.data;
-    },
-    enabled: activeSection === 'whatsapp' && !dashboardData?.whatsappStatus?.connected,
-    refetchInterval: (data) => {
-      if (data?.qr || data?.status === 'connected') return false;
-      if (data?.status === 'pending') return 3000;
-      return false;
-    },
-    staleTime: 0,
-    cacheTime: 0,
-  });
-
   // Mutations
   const logoutMutation = useMutation({
     mutationFn: () => axios.post('/auth/logout'),
     onSuccess: () => {
       logout();
-      navigate('/login');
+      window.location.href = '/login';
     }
   });
 
   const whatsappLogoutMutation = useMutation({
     mutationFn: () => axios.post('/users/whatsapp-logout'),
     onSuccess: () => {
+      setWhatsappStatus('disconnected');
+      setQrCode(null);
       queryClient.invalidateQueries(['dashboard']);
-      queryClient.invalidateQueries(['whatsapp-qr']);
       toast.success(t('dashboard.whatsapp.disconnected'));
+      // Restart QR fetching
+      if (activeSection === 'whatsapp') {
+        setTimeout(fetchQRCode, 1000);
+      }
     }
   });
 
   const regenerateQRMutation = useMutation({
     mutationFn: async () => {
+      // First disconnect
       await axios.post('/users/whatsapp-logout');
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return axios.get('/transcripts/whatsapp-qr');
+      setWhatsappStatus('disconnected');
+      setQrCode(null);
+      // Wait a bit
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Then fetch new QR
+      return fetchQRCode();
     },
-    onSuccess: () => {
-      setQrRetryCount(prev => prev + 1);
-      queryClient.invalidateQueries(['whatsapp-qr']);
-      queryClient.invalidateQueries(['dashboard']);
+    onError: (error) => {
+      console.error('Error regenerating QR:', error);
+      toast.error(t('dashboard.whatsapp.regenerateError'));
     }
   });
 
@@ -198,17 +359,10 @@ export default function Dashboard() {
     }
   });
 
-  // Effect for WhatsApp connection status
-  useEffect(() => {
-    if (qrData?.status === 'connected') {
-      queryClient.invalidateQueries(['dashboard']);
-    }
-  }, [qrData?.status]);
-
   // Chart data preparation
   const chartData = dashboardData?.stats ? {
     daily: dashboardData.stats.daily.map(d => ({
-      date: format(new Date(d.date), 'dd MMM', { locale: fr }),
+      date: formatDate(d.date, 'dd MMM'),
       transcriptions: d.count,
       minutes: d.minutes
     })),
@@ -305,11 +459,11 @@ export default function Dashboard() {
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">{t('dashboard.overview.whatsappStatus')}</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {dashboardData?.whatsappStatus?.connected ? t('dashboard.overview.connected') : t('dashboard.overview.disconnected')}
+                    {whatsappStatus === 'connected' ? t('dashboard.overview.connected') : t('dashboard.overview.disconnected')}
                   </p>
                 </div>
-                <div className={`p-3 ${dashboardData?.whatsappStatus?.connected ? 'bg-green-100 dark:bg-green-900/20' : 'bg-red-100 dark:bg-red-900/20'} rounded-lg`}>
-                  <Phone className={`h-6 w-6 ${dashboardData?.whatsappStatus?.connected ? 'text-green-600' : 'text-red-600'}`} />
+                <div className={`p-3 ${whatsappStatus === 'connected' ? 'bg-green-100 dark:bg-green-900/20' : 'bg-red-100 dark:bg-red-900/20'} rounded-lg`}>
+                  <Phone className={`h-6 w-6 ${whatsappStatus === 'connected' ? 'text-green-600' : 'text-red-600'}`} />
                 </div>
               </div>
             </CardContent>
@@ -384,14 +538,14 @@ export default function Dashboard() {
               <div key={transcript._id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                 <div className="flex-1">
                   <p className="font-medium text-gray-900 dark:text-white">
-                    {transcript.phoneNumber}
+                    {transcript.metadata?.fromNumber || 'Unknown'}
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     {format(new Date(transcript.createdAt), 'dd MMM yyyy à HH:mm', { locale: fr })}
                   </p>
                 </div>
                 <div className="flex items-center gap-4">
-                  <Badge variant="primary">{transcript.duration}s</Badge>
+                  <Badge variant="primary">{transcript.audioLength}s</Badge>
                   <Badge>{transcript.language}</Badge>
                   <Button
                     size="sm"
@@ -406,6 +560,11 @@ export default function Dashboard() {
                 </div>
               </div>
             ))}
+            {(!dashboardData?.stats?.recent || dashboardData.stats.recent.length === 0) && (
+              <div className="text-center py-8 text-gray-500">
+                {t('dashboard.overview.noRecentTranscriptions')}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -473,11 +632,11 @@ export default function Dashboard() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h4 className="font-medium text-gray-900 dark:text-white">
-                          {transcript.phoneNumber}
+                          {transcript.metadata?.fromNumber || 'Unknown'}
                         </h4>
-                        <Badge variant="primary">{transcript.duration}s</Badge>
+                        <Badge variant="primary">{transcript.audioLength}s</Badge>
                         <Badge>{transcript.language}</Badge>
-                        {transcript.hasSummary && (
+                        {transcript.summary && (
                           <Badge variant="success">{t('dashboard.transcriptions.summary')}</Badge>
                         )}
                       </div>
@@ -485,7 +644,7 @@ export default function Dashboard() {
                         {transcript.text}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
-                        {format(new Date(transcript.createdAt), 'dd MMM yyyy à HH:mm', { locale: fr })}
+                        {formatDate(transcript.createdAt, 'dd MMM yyyy à HH:mm')}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 ml-4">
@@ -528,13 +687,13 @@ export default function Dashboard() {
       <CardHeader>
         <CardTitle>{t('dashboard.whatsapp.title')}</CardTitle>
         <CardDescription>
-          {dashboardData?.whatsappStatus?.connected || qrData?.status === 'connected'
+          {whatsappStatus === 'connected'
             ? t('dashboard.whatsapp.accountConnected')
             : t('dashboard.whatsapp.scanQRCode')}
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {(dashboardData?.whatsappStatus?.connected || qrData?.status === 'connected') ? (
+        {whatsappStatus === 'connected' ? (
           <div className="text-center py-8">
             <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 dark:bg-green-900/20 rounded-full mb-4">
               <Check className="h-10 w-10 text-green-600" />
@@ -547,20 +706,34 @@ export default function Dashboard() {
               onClick={() => whatsappLogoutMutation.mutate()}
               disabled={whatsappLogoutMutation.isLoading}
             >
-              {t('dashboard.whatsapp.disconnect')}
+              {whatsappLogoutMutation.isLoading ? (
+                <>
+                  <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                  {t('dashboard.whatsapp.disconnecting')}
+                </>
+              ) : (
+                t('dashboard.whatsapp.disconnect')
+              )}
             </Button>
           </div>
         ) : (
           <div className="text-center py-8">
-            {qrData?.qr ? (
+            {qrCode ? (
               <>
                 <div className="relative inline-block mb-6">
                   <img
-                    src={`data:image/png;base64,${qrData.qr}`}
+                    src={`data:image/png;base64,${qrCode}`}
                     alt="QR Code WhatsApp"
                     className="mx-auto border-2 border-gray-200 dark:border-gray-700 rounded-lg"
                     style={{ width: 300, height: 300 }}
                   />
+                  {whatsappStatus === 'pending' && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-10 rounded-lg">
+                      <div className="bg-white dark:bg-gray-800 p-2 rounded-full">
+                        <LoadingSpinner size="sm" />
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
@@ -575,8 +748,17 @@ export default function Dashboard() {
                   onClick={() => regenerateQRMutation.mutate()}
                   disabled={regenerateQRMutation.isLoading}
                 >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  {t('dashboard.whatsapp.regenerateQR', 'Régénérer le QR')}
+                  {regenerateQRMutation.isLoading ? (
+                    <>
+                      <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                      {t('dashboard.whatsapp.regenerating')}
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      {t('dashboard.whatsapp.regenerateQR')}
+                    </>
+                  )}
                 </Button>
               </>
             ) : (
@@ -585,23 +767,30 @@ export default function Dashboard() {
                   <LoadingSpinner size="lg" />
                 </div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {qrData?.message || t('dashboard.whatsapp.generatingQR', 'Génération du QR code...')}
+                  {t('dashboard.whatsapp.generatingQR')}
                 </p>
-                {qrData?.status === 'pending' && (
-                  <p className="text-xs text-gray-500">
-                    {t('dashboard.whatsapp.waitingForQR', 'Veuillez patienter quelques secondes...')}
-                  </p>
-                )}
+                <p className="text-xs text-gray-500">
+                  {t('dashboard.whatsapp.waitingForQR')}
+                </p>
                 
                 <div className="mt-4">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => regenerateQRMutation.mutate()}
-                    disabled={regenerateQRMutation.isLoading}
+                    onClick={() => fetchQRCode()}
+                    disabled={qrLoading}
                   >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    {t('dashboard.whatsapp.forceRegenerate', 'Forcer la régénération')}
+                    {qrLoading ? (
+                      <>
+                        <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                        {t('dashboard.whatsapp.loading')}
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        {t('dashboard.whatsapp.retry')}
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>
@@ -786,11 +975,7 @@ export default function Dashboard() {
           <CardDescription>{t('dashboard.settings.description')}</CardDescription>
         </CardHeader>
         <CardContent>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              updateSettingsMutation.mutate(dashboardData?.settings);
-            }}
+          <div
             className="space-y-6"
           >
             {/* Language Settings */}
@@ -983,7 +1168,7 @@ export default function Dashboard() {
             {/* Save Button */}
             <div className="pt-4">
               <Button
-                type="submit"
+                onClick={() => updateSettingsMutation.mutate(dashboardData?.settings)}
                 disabled={updateSettingsMutation.isLoading}
               >
                 {updateSettingsMutation.isLoading ? (
@@ -996,7 +1181,7 @@ export default function Dashboard() {
                 )}
               </Button>
             </div>
-          </form>
+          </div>
         </CardContent>
       </Card>
 
@@ -1209,7 +1394,7 @@ export default function Dashboard() {
               <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('dashboard.transcriptions.information')}</h4>
               <div className="mt-2 space-y-2">
                 <p className="text-sm">
-                  <span className="font-medium">{t('dashboard.transcriptions.phoneNumber')}:</span> {selectedTranscript.phoneNumber}
+                  <span className="font-medium">{t('dashboard.transcriptions.phoneNumber')}:</span> {selectedTranscript.metadata?.fromNumber || 'Unknown'}
                 </p>
                 <p className="text-sm">
                   <span className="font-medium">{t('dashboard.transcriptions.date')}:</span>{' '}
@@ -1218,7 +1403,7 @@ export default function Dashboard() {
                   })}
                 </p>
                 <p className="text-sm">
-                  <span className="font-medium">{t('dashboard.transcriptions.duration')}:</span> {selectedTranscript.duration} {t('dashboard.transcriptions.seconds')}
+                  <span className="font-medium">{t('dashboard.transcriptions.duration')}:</span> {selectedTranscript.audioLength} {t('dashboard.transcriptions.seconds')}
                 </p>
                 <p className="text-sm">
                   <span className="font-medium">{t('dashboard.transcriptions.language')}:</span> {selectedTranscript.language}
