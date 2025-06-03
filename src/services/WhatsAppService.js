@@ -51,7 +51,11 @@ class WhatsAppService {
             
             LogService.info('WhatsApp service initialized');
         } catch (error) {
-            LogService.error('WhatsApp initialization error:', error);
+            LogService.error('WhatsApp initialization error:', {
+                message: error.message,
+                stack: error.stack,
+                code: error.code
+            });
         }
     }
 
@@ -75,7 +79,7 @@ class WhatsAppService {
                     dataPath: this.sessionPath
                 }),
                 puppeteer: {
-                    headless: true,
+                    headless: true, // Toujours headless en production Docker
                     args: [
                         '--no-sandbox',
                         '--disable-setuid-sandbox',
@@ -83,16 +87,8 @@ class WhatsAppService {
                         '--disable-accelerated-2d-canvas',
                         '--no-first-run',
                         '--no-zygote',
-                        '--single-process', // Important pour certains environnements
                         '--disable-gpu'
-                    ],
-                    // Timeout plus long pour la connexion
-                    timeout: 120000
-                },
-                // Options WhatsApp Web
-                webVersionCache: {
-                    type: 'remote',
-                    remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
+                    ]
                 }
             });
 
@@ -101,10 +97,25 @@ class WhatsAppService {
                 LogService.info('WhatsApp loading:', { userId, percent, message });
             });
 
-            // QR Code event
+            // Pairing code support
+            let pairingCodeRequested = false;
             client.on('qr', async (qr) => {
                 try {
                     LogService.info('QR Code received for user:', { userId });
+                    
+                    // Support pour pairing code (si nécessaire)
+                    const pairingCodeEnabled = false; // Mettre à true pour activer
+                    if (pairingCodeEnabled && !pairingCodeRequested) {
+                        // Remplacer par le numéro WhatsApp de l'utilisateur
+                        const userPhoneNumber = await this.getUserPhoneNumber(userId);
+                        if (userPhoneNumber) {
+                            const pairingCode = await client.requestPairingCode(userPhoneNumber);
+                            LogService.info('Pairing code generated:', { userId, pairingCode });
+                            pairingCodeRequested = true;
+                            return;
+                        }
+                    }
+                    
                     const qrImage = await qrcode.toDataURL(qr, {
                         width: 300,
                         margin: 2,
@@ -114,10 +125,12 @@ class WhatsAppService {
                         }
                     });
                     this.pendingQRs.set(userId, qrImage.split(',')[1]);
+                    LogService.info('QR code stored for user:', { userId, qrLength: qrImage.length });
                 } catch (error) {
                     LogService.error('Error generating QR code:', { userId, error });
                 }
             });
+
 
             // Authenticated event
             client.on('authenticated', () => {
@@ -146,6 +159,26 @@ class WhatsAppService {
             client.on('ready', async () => {
                 LogService.info('WhatsApp client ready for user:', { userId });
                 this.pendingQRs.delete(userId);
+                
+                // Obtenir la version WhatsApp Web pour debug
+                try {
+                    const debugWWebVersion = await client.getWWebVersion();
+                    LogService.info(`WWebVersion = ${debugWWebVersion}`, { userId });
+                } catch (e) {
+                    LogService.warn('Could not get WWeb version:', e);
+                }
+                
+                // Gestion des erreurs de page Puppeteer
+                try {
+                    client.pupPage.on('pageerror', function(err) {
+                        LogService.error('Page error:', { userId, error: err.toString() });
+                    });
+                    client.pupPage.on('error', function(err) {
+                        LogService.error('Page error:', { userId, error: err.toString() });
+                    });
+                } catch (e) {
+                    LogService.warn('Could not set page error handlers:', e);
+                }
                 
                 // Obtenir les informations du client
                 const info = client.info;
@@ -218,7 +251,9 @@ class WhatsAppService {
 
             // Initialiser le client
             LogService.info('Initializing WhatsApp client...', { userId });
-            await client.initialize();
+            
+            // Note: client.initialize() ne finit plus à 'ready' maintenant
+            client.initialize();
             
             this.clients.set(userId, client);
             return true;
@@ -380,10 +415,11 @@ class WhatsAppService {
                 // Supprimer le message "en cours" si existe
                 if (processingMsg) {
                     try {
-                        // Dans les nouvelles versions, delete n'a pas de paramètre
-                        await processingMsg.delete();
+                        // Dans les nouvelles versions, delete avec paramètre true pour tous
+                        await processingMsg.delete(true);
                     } catch (e) {
                         // Ignorer si impossible de supprimer
+                        LogService.debug('Could not delete processing message:', e);
                     }
                 }
                 
@@ -542,15 +578,25 @@ class WhatsAppService {
 
     async getQRCode(userId) {
         try {
+            LogService.info('Getting QR code for user:', { userId });
+            
             const client = this.clients.get(userId);
             
             if (!client) {
+                LogService.info('No client found, creating session:', { userId });
                 await this.createUserSession(userId);
                 // Attendre un peu pour que le QR soit généré
                 await new Promise(resolve => setTimeout(resolve, 1000));
             }
             
             const qr = this.pendingQRs.get(userId);
+            LogService.info('QR code status:', { 
+                userId, 
+                hasQR: !!qr, 
+                qrLength: qr ? qr.length : 0,
+                pendingQRsSize: this.pendingQRs.size
+            });
+            
             return qr || null;
         } catch (error) {
             LogService.error('Error getting QR code:', { userId, error });
@@ -643,6 +689,16 @@ class WhatsAppService {
     async getUserById(userId) {
         const User = require('../models/User');
         return User.findById(userId);
+    }
+
+    async getUserPhoneNumber(userId) {
+        try {
+            const user = await this.getUserById(userId);
+            return user?.whatsappNumber || null;
+        } catch (error) {
+            LogService.error('Error getting user phone number:', { userId, error });
+            return null;
+        }
     }
     
     // Redis session management

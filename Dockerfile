@@ -43,13 +43,13 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copier le code source
 COPY . .
 
-# Créer les dossiers nécessaires avec les bonnes permissions
-RUN mkdir -p data/sessions data/temp logs && \
-    chmod -R 755 data logs
-
 # Créer un utilisateur non-root
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001 && \
+    adduser -S nodejs -u 1001
+
+# Créer les dossiers nécessaires avec les bonnes permissions
+RUN mkdir -p data/sessions data/temp logs .wwebjs_auth && \
+    chmod -R 755 data logs .wwebjs_auth && \
     chown -R nodejs:nodejs /app
 
 USER nodejs

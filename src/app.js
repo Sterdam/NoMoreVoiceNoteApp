@@ -92,16 +92,9 @@ const configureApp = () => {
     // Cookie parser avec secret
     app.use(cookieParser(process.env.COOKIE_SECRET || 'your-secret-key'));
 
-    // Protection CSRF (désactivé en développement)
-    if (process.env.NODE_ENV !== 'development') {
+    // Protection CSRF uniquement en production
+    if (process.env.NODE_ENV === 'production') {
         app.use(doubleCsrfProtection);
-    }
-    
-    // Route pour obtenir le token CSRF
-    app.get('/api/csrf-token', getCSRFToken);
-    
-    // Validation CSRF pour toutes les routes POST/PUT/DELETE (désactivé en développement)
-    if (process.env.NODE_ENV !== 'development') {
         app.use(validateCSRF);
     }
     

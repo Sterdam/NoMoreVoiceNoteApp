@@ -133,7 +133,7 @@ export default function Dashboard() {
     enabled: activeSection === 'transcripts'
   });
 
-  const { data: qrCode } = useQuery({
+  const { data: qrCode, isLoading: qrLoading } = useQuery({
     queryKey: ['whatsapp-qr'],
     queryFn: async () => {
       const response = await axios.get('/transcripts/whatsapp-qr');
@@ -141,9 +141,16 @@ export default function Dashboard() {
     },
     enabled: activeSection === 'whatsapp' && !dashboardData?.whatsappStatus?.connected,
     refetchInterval: (data) => {
-      if (data?.status === 'pending') return 2000;
-      return false;
-    }
+      // Continue polling if no QR code yet
+      if (data?.status === 'pending' && !data?.qr) return 2000;
+      // Stop polling if connected or QR received
+      if (data?.status === 'connected' || data?.qr) return false;
+      return 2000; // Default polling interval
+    },
+    // Force refetch on mount
+    refetchOnMount: true,
+    // Keep previous data while fetching
+    keepPreviousData: true
   });
 
   // Mutations
@@ -540,8 +547,18 @@ export default function Dashboard() {
                 </div>
               </>
             ) : (
-              <div className="inline-flex items-center justify-center w-64 h-64 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                <LoadingSpinner size="lg" />
+              <div className="space-y-4">
+                <div className="inline-flex items-center justify-center w-64 h-64 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                  <LoadingSpinner size="lg" />
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {qrCode?.message || t('dashboard.whatsapp.generatingQR', 'Génération du QR code...')}
+                </p>
+                {qrCode?.status === 'pending' && (
+                  <p className="text-xs text-gray-500">
+                    {t('dashboard.whatsapp.waitingForQR', 'Veuillez patienter quelques secondes...')}
+                  </p>
+                )}
               </div>
             )}
           </div>
