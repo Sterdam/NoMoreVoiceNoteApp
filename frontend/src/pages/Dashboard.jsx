@@ -128,9 +128,7 @@ export default function Dashboard() {
   // Function to check WhatsApp status
   const checkWhatsAppStatus = async () => {
     try {
-      console.log('Checking WhatsApp status...');
       const response = await axios.get('/users/whatsapp-status');
-      console.log('WhatsApp status response:', response.data);
       const isConnected = response.data.connected;
       setWhatsappStatus(isConnected ? 'connected' : 'disconnected');
       
@@ -146,12 +144,6 @@ export default function Dashboard() {
       return isConnected;
     } catch (error) {
       console.error('Error checking WhatsApp status:', error);
-      console.error('Status check error details:', {
-        message: error.message,
-        response: error.response,
-        status: error.response?.status,
-        data: error.response?.data
-      });
       return false;
     }
   };
@@ -160,11 +152,7 @@ export default function Dashboard() {
   const fetchQRCode = async () => {
     try {
       setQrLoading(true);
-      console.log('Fetching QR code...');
-      console.log('Current axios defaults:', axios.defaults);
-      console.log('Cookies:', document.cookie);
       const response = await axios.get('/transcripts/whatsapp-qr');
-      console.log('QR response:', response.data);
       
       if (response.data.status === 'connected') {
         setWhatsappStatus('connected');
@@ -185,12 +173,6 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error('Error fetching QR code:', error);
-      console.error('Error details:', {
-        message: error.message,
-        response: error.response,
-        status: error.response?.status,
-        data: error.response?.data
-      });
       toast.error(t('dashboard.whatsapp.qrGenerationError'));
     } finally {
       setQrLoading(false);

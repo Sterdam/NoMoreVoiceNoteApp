@@ -85,16 +85,17 @@ router.get('/whatsapp-qr', auth, async (req, res) => {
         }
 
         // Si pas connecté, obtenir ou générer un QR code
-        const qr = await WhatsAppService.getQRCode(userId);
+        const qrResult = await WhatsAppService.getQRCode(userId);
         
-        if (!qr) {
+        if (!qrResult) {
             return res.status(202).json({
                 status: 'pending',
                 message: t('transcripts.whatsapp.qr_generating', req)
             });
         }
 
-        res.json({ status: 'pending', qr });
+        // Retourner directement le résultat de getQRCode
+        res.json(qrResult);
     } catch (error) {
         LogService.error('Error in whatsapp-qr route:', {
             userId: req.user?._id,
