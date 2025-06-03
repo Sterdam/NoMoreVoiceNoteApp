@@ -1,7 +1,12 @@
 import axios from 'axios';
 
+// Déterminer l'URL du backend selon l'environnement
+const API_BASE_URL = process.env.NODE_ENV === 'development' 
+  ? 'http://localhost:3000/api'  // Backend en développement
+  : '/api';  // En production, utiliser le proxy
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE_URL,
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
@@ -16,7 +21,8 @@ let csrfToken = null;
 const getCSRFToken = async () => {
   if (!csrfToken) {
     try {
-      const response = await axios.get('/api/csrf-token', { withCredentials: true });
+      // Utiliser la même base URL pour le token CSRF
+      const response = await axios.get(`${API_BASE_URL}/csrf-token`, { withCredentials: true });
       csrfToken = response.data.csrfToken;
     } catch (error) {
       console.error('Failed to get CSRF token:', error);
