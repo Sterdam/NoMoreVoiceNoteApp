@@ -44,8 +44,12 @@ class WhatsAppService {
                 }
             }
             
-            this.redis = getRedisClient();
-            await this.restoreSessionsFromRedis();
+            try {
+                this.redis = getRedisClient();
+                await this.restoreSessionsFromRedis();
+            } catch (error) {
+                LogService.warn('Redis not available, continuing without session persistence');
+            }
             
             setInterval(() => this.performMemoryCleanup(), 300000);
             
@@ -63,7 +67,7 @@ class WhatsAppService {
         try {
             if (this.clients.has(userId)) {
                 const existingClient = this.clients.get(userId);
-                const state = await existingClient.getState();
+                const state = await existingClient.getState().catch(() => null);
                 if (state === 'CONNECTED') {
                     LogService.info('Client already connected', { userId });
                     return true;
@@ -79,7 +83,7 @@ class WhatsAppService {
                     dataPath: this.sessionPath
                 }),
                 puppeteer: {
-                    headless: true, // Toujours headless en production Docker
+                    headless: true,
                     args: [
                         '--no-sandbox',
                         '--disable-setuid-sandbox',
@@ -92,29 +96,18 @@ class WhatsAppService {
                 }
             });
 
+            // Store client immediately
+            this.clients.set(userId, client);
+
             // Loading screen event
             client.on('loading_screen', (percent, message) => {
                 LogService.info('WhatsApp loading:', { userId, percent, message });
             });
 
-            // Pairing code support
-            let pairingCodeRequested = false;
+            // QR code event
             client.on('qr', async (qr) => {
                 try {
-                    LogService.info('QR Code received for user:', { userId });
-                    
-                    // Support pour pairing code (si nécessaire)
-                    const pairingCodeEnabled = false; // Mettre à true pour activer
-                    if (pairingCodeEnabled && !pairingCodeRequested) {
-                        // Remplacer par le numéro WhatsApp de l'utilisateur
-                        const userPhoneNumber = await this.getUserPhoneNumber(userId);
-                        if (userPhoneNumber) {
-                            const pairingCode = await client.requestPairingCode(userPhoneNumber);
-                            LogService.info('Pairing code generated:', { userId, pairingCode });
-                            pairingCodeRequested = true;
-                            return;
-                        }
-                    }
+                    LogService.info('QR Code received for user:', { userId, qrLength: qr ? qr.length : 0 });
                     
                     const qrImage = await qrcode.toDataURL(qr, {
                         width: 300,
@@ -124,13 +117,20 @@ class WhatsAppService {
                             light: '#FFFFFF'
                         }
                     });
-                    this.pendingQRs.set(userId, qrImage.split(',')[1]);
-                    LogService.info('QR code stored for user:', { userId, qrLength: qrImage.length });
+                    
+                    // Extract base64 data
+                    const base64Data = qrImage.split(',')[1];
+                    this.pendingQRs.set(userId, base64Data);
+                    
+                    LogService.info('QR code stored for user:', { 
+                        userId, 
+                        qrLength: base64Data.length,
+                        pendingQRsSize: this.pendingQRs.size 
+                    });
                 } catch (error) {
-                    LogService.error('Error generating QR code:', { userId, error });
+                    LogService.error('Error generating QR code:', { userId, error: error.message });
                 }
             });
-
 
             // Authenticated event
             client.on('authenticated', () => {
@@ -142,9 +142,12 @@ class WhatsAppService {
             client.on('auth_failure', async (msg) => {
                 LogService.error('WhatsApp authentication failed:', { userId, msg });
                 this.pendingQRs.delete(userId);
-                await this.removeSessionFromRedis(userId);
                 
-                // Nettoyer la session locale
+                if (this.redis) {
+                    await this.removeSessionFromRedis(userId);
+                }
+                
+                // Clean local session
                 const sessionDir = path.join(this.sessionPath, `session-${userId}`);
                 try {
                     await fs.rm(sessionDir, { recursive: true, force: true });
@@ -160,7 +163,6 @@ class WhatsAppService {
                 LogService.info('WhatsApp client ready for user:', { userId });
                 this.pendingQRs.delete(userId);
                 
-                // Obtenir la version WhatsApp Web pour debug
                 try {
                     const debugWWebVersion = await client.getWWebVersion();
                     LogService.info(`WWebVersion = ${debugWWebVersion}`, { userId });
@@ -168,38 +170,45 @@ class WhatsAppService {
                     LogService.warn('Could not get WWeb version:', e);
                 }
                 
-                // Gestion des erreurs de page Puppeteer
+                // Setup page error handlers
                 try {
-                    client.pupPage.on('pageerror', function(err) {
-                        LogService.error('Page error:', { userId, error: err.toString() });
-                    });
-                    client.pupPage.on('error', function(err) {
-                        LogService.error('Page error:', { userId, error: err.toString() });
-                    });
+                    if (client.pupPage) {
+                        client.pupPage.on('pageerror', (err) => {
+                            LogService.error('Page error:', { userId, error: err.toString() });
+                        });
+                        client.pupPage.on('error', (err) => {
+                            LogService.error('Page error:', { userId, error: err.toString() });
+                        });
+                    }
                 } catch (e) {
                     LogService.warn('Could not set page error handlers:', e);
                 }
                 
-                // Obtenir les informations du client
+                // Get client info
                 const info = client.info;
                 LogService.info('Client info:', { 
                     userId, 
-                    pushname: info.pushname,
-                    wid: info.wid,
-                    platform: info.platform 
+                    pushname: info?.pushname,
+                    wid: info?.wid,
+                    platform: info?.platform 
                 });
                 
-                // Sauvegarder les infos du client
-                const selfChatId = info.wid.user + '@c.us';
-                this.selfChatIds.set(userId, selfChatId);
+                // Save self chat ID
+                if (info?.wid) {
+                    const selfChatId = info.wid.user + '@c.us';
+                    this.selfChatIds.set(userId, selfChatId);
+                }
                 
-                await this.saveSessionToRedis(userId, 'connected');
+                if (this.redis) {
+                    await this.saveSessionToRedis(userId, 'connected');
+                }
                 this.stopReconnectAttempts(userId);
                 
-                // Envoyer un message de bienvenue
+                // Send welcome message
                 try {
                     const user = await this.getUserById(userId);
-                    if (user.settings.separateConversation && client.info) {
+                    if (user?.settings?.separateConversation && client.info) {
+                        const selfChatId = client.info.wid.user + '@c.us';
                         await client.sendMessage(selfChatId, 
                             `🎉 *VoxKill connecté avec succès!*\n\n` +
                             `✅ Vos transcriptions seront envoyées ici\n` +
@@ -213,7 +222,7 @@ class WhatsAppService {
                 }
             });
 
-            // Change state event
+            // State change event
             client.on('change_state', state => {
                 LogService.info('WhatsApp state changed:', { userId, state });
             });
@@ -221,7 +230,7 @@ class WhatsAppService {
             // Message event
             client.on('message', async (message) => {
                 try {
-                    // Vérifier si c'est un message vocal
+                    // Check if it's a voice message
                     if (message.hasMedia && message.type === 'ptt') {
                         LogService.info('Voice message received:', { 
                             userId, 
@@ -245,17 +254,27 @@ class WhatsAppService {
             // Disconnected event
             client.on('disconnected', async (reason) => {
                 LogService.warn('WhatsApp disconnected:', { userId, reason });
-                await this.saveSessionToRedis(userId, 'disconnected');
+                if (this.redis) {
+                    await this.saveSessionToRedis(userId, 'disconnected');
+                }
                 this.scheduleReconnect(userId);
             });
 
-            // Initialiser le client
+            // Initialize the client
             LogService.info('Initializing WhatsApp client...', { userId });
             
-            // Note: client.initialize() ne finit plus à 'ready' maintenant
-            client.initialize();
+            try {
+                await client.initialize();
+            } catch (error) {
+                LogService.error('Error initializing WhatsApp client:', { 
+                    userId, 
+                    error: error.message,
+                    stack: error.stack 
+                });
+                this.clients.delete(userId);
+                throw error;
+            }
             
-            this.clients.set(userId, client);
             return true;
 
         } catch (error) {
@@ -264,13 +283,14 @@ class WhatsAppService {
                 error: error.message,
                 stack: error.stack 
             });
+            this.clients.delete(userId);
             throw error;
         }
     }
 
     async handleVoiceMessage(message, userId, req) {
         try {
-            // Vérifier l'abonnement et les limites
+            // Check subscription and limits
             const subscription = await Subscription.findOne({ userId });
             if (!subscription || !subscription.isActive()) {
                 await message.reply("❌ Votre abonnement a expiré. Renouvelez sur voxkill.com/dashboard");
@@ -282,12 +302,12 @@ class WhatsAppService {
             const AdService = require('./AdService');
             const SummaryService = require('./SummaryService');
             
-            // Obtenir les informations du contact
+            // Get contact and chat info
             const contact = await message.getContact();
             const chat = await message.getChat();
             const senderName = contact.pushname || contact.name || contact.number;
             
-            // Télécharger et traiter le média
+            // Download and process media
             const media = await message.downloadMedia();
             if (!media) {
                 LogService.error('Failed to download media');
@@ -300,7 +320,7 @@ class WhatsAppService {
             
             await fs.writeFile(filepath, Buffer.from(media.data, 'base64'));
             
-            // Vérifications de taille et durée
+            // Size and duration checks
             const stats = await fs.stat(filepath);
             const fileSizeMB = stats.size / (1024 * 1024);
             
@@ -320,7 +340,7 @@ class WhatsAppService {
                 return;
             }
             
-            // Vérifier le quota
+            // Check quota
             const remainingMinutes = await usage.getRemainingMinutes();
             if (remainingMinutes < durationMinutes) {
                 await message.reply(`❌ Quota dépassé. Il reste ${remainingMinutes.toFixed(1)} min.`);
@@ -328,14 +348,14 @@ class WhatsAppService {
                 return;
             }
             
-            // Message de traitement en cours
+            // Processing message
             let processingMsg = null;
             if (!user.settings.separateConversation || subscription.plan === 'trial') {
                 processingMsg = await message.reply("🎤 Transcription en cours...");
             }
             
             try {
-                // Convertir et transcrire
+                // Convert and transcribe
                 const wavPath = await this.convertToWav(filepath);
                 
                 // Transcription via OpenAI
@@ -345,7 +365,7 @@ class WhatsAppService {
                     response_format: 'json'
                 });
                 
-                // Générer le résumé selon le niveau choisi
+                // Generate summary if needed
                 let summary = null;
                 if (user.settings.summaryLevel !== 'none' && subscription.plan !== 'trial') {
                     const canSummarize = await usage.canSummarize();
@@ -364,7 +384,7 @@ class WhatsAppService {
                     }
                 }
                 
-                // Sauvegarder la transcription
+                // Save transcription
                 const transcript = new Transcript({
                     userId,
                     messageId: message.id._serialized,
@@ -389,13 +409,13 @@ class WhatsAppService {
                 
                 await transcript.save();
                 
-                // Mettre à jour l'utilisation
+                // Update usage
                 await usage.addTranscription(durationMinutes, durationMinutes * 0.006, transcript._id);
                 
-                // Vérifier et envoyer les notifications de quota
+                // Check and send quota notifications
                 await NotificationService.checkAndNotifyQuotaUsage(userId);
                 
-                // Construire la réponse
+                // Build response
                 const replyText = this.formatTranscriptionMessage({
                     senderName,
                     senderNumber: contact.number,
@@ -412,18 +432,16 @@ class WhatsAppService {
                     plan: subscription.plan
                 });
                 
-                // Supprimer le message "en cours" si existe
+                // Delete processing message if exists
                 if (processingMsg) {
                     try {
-                        // Dans les nouvelles versions, delete avec paramètre true pour tous
                         await processingMsg.delete(true);
                     } catch (e) {
-                        // Ignorer si impossible de supprimer
                         LogService.debug('Could not delete processing message:', e);
                     }
                 }
                 
-                // Déterminer où envoyer la réponse
+                // Send response
                 if (user.settings.separateConversation && subscription.plan !== 'trial') {
                     await this.sendToSeparateConversation(userId, replyText, {
                         originalChat: chat,
@@ -464,7 +482,7 @@ class WhatsAppService {
         
         let message = '';
         
-        // En-tête avec contexte
+        // Header with context
         if (data.plan !== 'trial' && data.senderNumber) {
             const formattedDate = data.timestamp.toLocaleString('fr-FR', {
                 day: '2-digit',
@@ -480,7 +498,7 @@ class WhatsAppService {
             message += `⏱️ ${data.duration.toFixed(1)} min | 🌐 ${data.language.toUpperCase()}\n`;
             message += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
         } else {
-            // Format simplifié pour trial
+            // Simplified format for trial
             message += `📝 **Transcription** (${data.duration.toFixed(1)} min)\n\n`;
         }
         
@@ -488,7 +506,7 @@ class WhatsAppService {
         message += `📄 **TRANSCRIPTION**\n`;
         message += `${data.text}\n`;
         
-        // Résumé si disponible
+        // Summary if available
         if (data.summary && data.summaryLevel !== 'none') {
             const summaryInfo = SummaryService.getSummaryLevelInfo(data.summaryLevel);
             message += `\n━━━━━━━━━━━━━━━━━━━━━━\n`;
@@ -496,7 +514,7 @@ class WhatsAppService {
             message += `${data.summary}\n`;
         }
         
-        // Statistiques d'utilisation
+        // Usage stats
         const percentUsed = ((data.totalMinutes - data.remainingMinutes) / data.totalMinutes * 100).toFixed(0);
         message += `\n━━━━━━━━━━━━━━━━━━━━━━\n`;
         message += `📊 **Utilisation**: ${percentUsed}% (${data.remainingMinutes.toFixed(0)}/${data.totalMinutes} min restantes)\n`;
@@ -505,7 +523,7 @@ class WhatsAppService {
             message += `⚠️ **Attention**: Plus que ${100 - percentUsed}% de quota !\n`;
         }
         
-        // Ajouter publicité si compte gratuit
+        // Add ad if free account
         if (data.showAd) {
             const ad = AdService.getRandomAd(data.language);
             message += AdService.formatAdForWhatsApp(ad);
@@ -525,25 +543,26 @@ class WhatsAppService {
                 return;
             }
             
-            // Obtenir ou créer l'ID de la conversation self
+            // Get or create self chat ID
             let selfChatId = this.selfChatIds.get(userId);
             
             if (!selfChatId && client.info) {
-                // Obtenir le numéro de l'utilisateur
                 const userNumber = client.info.wid.user + '@c.us';
                 selfChatId = userNumber;
                 this.selfChatIds.set(userId, selfChatId);
                 
-                // Sauvegarder dans Redis pour persistance
-                await this.redis.setEx(
-                    `whatsapp:selfchat:${userId}`,
-                    86400 * 30, // 30 jours
-                    selfChatId
-                );
+                // Save in Redis for persistence
+                if (this.redis) {
+                    await this.redis.setEx(
+                        `whatsapp:selfchat:${userId}`,
+                        86400 * 30, // 30 days
+                        selfChatId
+                    );
+                }
             }
             
             try {
-                // Envoyer le message à soi-même
+                // Send message to self
                 await client.sendMessage(selfChatId, message);
                 
                 LogService.info('Message sent to separate conversation', {
@@ -558,7 +577,7 @@ class WhatsAppService {
                     selfChatId
                 });
                 
-                // Fallback: essayer d'envoyer dans le chat original
+                // Fallback: try to send in original chat
                 try {
                     const fallbackMessage = `[📥 Transcription privée]\n${message}`;
                     await client.sendMessage(context.originalChat.id._serialized, fallbackMessage);
@@ -580,13 +599,30 @@ class WhatsAppService {
         try {
             LogService.info('Getting QR code for user:', { userId });
             
-            const client = this.clients.get(userId);
+            let client = this.clients.get(userId);
             
             if (!client) {
                 LogService.info('No client found, creating session:', { userId });
                 await this.createUserSession(userId);
-                // Attendre un peu pour que le QR soit généré
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                client = this.clients.get(userId);
+            }
+            
+            // Check if client is connected
+            if (client) {
+                try {
+                    const state = await client.getState();
+                    if (state === 'CONNECTED') {
+                        LogService.info('Client already connected', { userId });
+                        return { status: 'connected' };
+                    }
+                } catch (e) {
+                    LogService.debug('Could not get client state:', e);
+                }
+            }
+            
+            // Wait a bit for QR to be generated if just created
+            if (!this.pendingQRs.has(userId)) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
             }
             
             const qr = this.pendingQRs.get(userId);
@@ -597,9 +633,17 @@ class WhatsAppService {
                 pendingQRsSize: this.pendingQRs.size
             });
             
-            return qr || null;
+            if (qr) {
+                return { status: 'pending', qr };
+            } else {
+                return { status: 'pending', message: 'Génération du QR code en cours...' };
+            }
         } catch (error) {
-            LogService.error('Error getting QR code:', { userId, error });
+            LogService.error('Error getting QR code:', { 
+                userId, 
+                error: error.message,
+                stack: error.stack 
+            });
             throw error;
         }
     }
@@ -609,7 +653,7 @@ class WhatsAppService {
             const client = this.clients.get(userId);
             if (!client) return false;
             
-            const state = await client.getState();
+            const state = await client.getState().catch(() => null);
             return state === 'CONNECTED';
         } catch (error) {
             LogService.error('Error checking connection:', { userId, error });
@@ -624,18 +668,24 @@ class WhatsAppService {
                 try {
                     await client.logout();
                 } catch (e) {
-                    // Ignorer les erreurs de logout
+                    LogService.debug('Error during logout:', e);
                 }
-                await client.destroy();
+                try {
+                    await client.destroy();
+                } catch (e) {
+                    LogService.debug('Error destroying client:', e);
+                }
                 this.clients.delete(userId);
                 this.pendingQRs.delete(userId);
                 this.selfChatIds.delete(userId);
             }
 
             this.stopReconnectAttempts(userId);
-            await this.removeSessionFromRedis(userId);
+            if (this.redis) {
+                await this.removeSessionFromRedis(userId);
+            }
 
-            // Nettoyer le dossier de session
+            // Clean session directory
             const sessionDir = path.join(this.sessionPath, `session-${userId}`);
             try {
                 await fs.rm(sessionDir, { recursive: true, force: true });
@@ -643,6 +693,7 @@ class WhatsAppService {
                 LogService.warn('Error cleaning session directory:', { userId, error: err });
             }
 
+            LogService.info('User logged out successfully', { userId });
             return true;
         } catch (error) {
             LogService.error('Error during logout:', { userId, error });
@@ -650,7 +701,7 @@ class WhatsAppService {
         }
     }
 
-    // Méthodes utilitaires
+    // Utility methods
     async getAudioDuration(filepath) {
         try {
             const command = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filepath}"`;
@@ -703,6 +754,8 @@ class WhatsAppService {
     
     // Redis session management
     async saveSessionToRedis(userId, status) {
+        if (!this.redis) return;
+        
         try {
             const sessionData = {
                 userId,
@@ -713,16 +766,16 @@ class WhatsAppService {
             
             await this.redis.setEx(
                 `whatsapp:session:${userId}`,
-                86400, // 24 heures
+                86400, // 24 hours
                 JSON.stringify(sessionData)
             );
             
-            // Sauvegarder aussi le selfChatId si disponible
+            // Save selfChatId if available
             const selfChatId = this.selfChatIds.get(userId);
             if (selfChatId) {
                 await this.redis.setEx(
                     `whatsapp:selfchat:${userId}`,
-                    86400 * 30, // 30 jours
+                    86400 * 30, // 30 days
                     selfChatId
                 );
             }
@@ -732,6 +785,8 @@ class WhatsAppService {
     }
     
     async removeSessionFromRedis(userId) {
+        if (!this.redis) return;
+        
         try {
             await this.redis.del(`whatsapp:session:${userId}`);
             await this.redis.del(`whatsapp:selfchat:${userId}`);
@@ -741,6 +796,8 @@ class WhatsAppService {
     }
     
     async restoreSessionsFromRedis() {
+        if (!this.redis) return;
+        
         try {
             const keys = await this.redis.keys('whatsapp:session:*');
             
@@ -751,7 +808,7 @@ class WhatsAppService {
                     if (session.status === 'connected' || session.status === 'authenticated') {
                         LogService.info('Restoring WhatsApp session:', { userId: session.userId });
                         
-                        // Restaurer aussi le selfChatId
+                        // Restore selfChatId
                         const selfChatId = await this.redis.get(`whatsapp:selfchat:${session.userId}`);
                         if (selfChatId) {
                             this.selfChatIds.set(session.userId, selfChatId);
@@ -787,7 +844,7 @@ class WhatsAppService {
                 await this.createUserSession(userId);
                 const client = this.clients.get(userId);
                 if (client) {
-                    const state = await client.getState();
+                    const state = await client.getState().catch(() => null);
                     if (state === 'CONNECTED') {
                         this.stopReconnectAttempts(userId);
                     }
@@ -819,19 +876,21 @@ class WhatsAppService {
                 percentage: `${(heapPercentage * 100).toFixed(2)}%`
             });
             
-            // Nettoyer les clients inactifs
+            // Clean inactive clients
             for (const [userId, client] of this.clients.entries()) {
                 try {
-                    const sessionData = await this.redis.get(`whatsapp:session:${userId}`);
-                    if (sessionData) {
-                        const session = JSON.parse(sessionData);
-                        const lastActive = new Date(session.lastActive);
-                        const hoursSinceActive = (Date.now() - lastActive) / (1000 * 60 * 60);
-                        
-                        const state = await client.getState();
-                        if (hoursSinceActive > 24 && state !== 'CONNECTED') {
-                            LogService.info('Removing inactive client:', { userId, hoursSinceActive });
-                            await this.logout(userId);
+                    if (this.redis) {
+                        const sessionData = await this.redis.get(`whatsapp:session:${userId}`);
+                        if (sessionData) {
+                            const session = JSON.parse(sessionData);
+                            const lastActive = new Date(session.lastActive);
+                            const hoursSinceActive = (Date.now() - lastActive) / (1000 * 60 * 60);
+                            
+                            const state = await client.getState().catch(() => null);
+                            if (hoursSinceActive > 24 && state !== 'CONNECTED') {
+                                LogService.info('Removing inactive client:', { userId, hoursSinceActive });
+                                await this.logout(userId);
+                            }
                         }
                     }
                 } catch (error) {
@@ -839,7 +898,7 @@ class WhatsAppService {
                 }
             }
             
-            // Forcer le garbage collection si disponible
+            // Force garbage collection if available
             if (global.gc) {
                 global.gc();
                 LogService.info('Garbage collection triggered');

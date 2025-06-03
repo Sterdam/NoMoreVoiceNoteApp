@@ -7,7 +7,7 @@ import {
   LayoutDashboard, FileText, Settings, CreditCard, LogOut, Search,
   Filter, Download, Trash2, Calendar, Clock, Languages, TrendingUp,
   Mic, MessageSquare, BarChart3, PieChart, Activity, ChevronRight,
-  QrCode, Check, X, Loader2, AlertCircle, Phone, Star, Menu, Moon, Sun, Zap
+  QrCode, Check, X, Loader2, AlertCircle, Phone, Star, Menu, Moon, Sun, Zap, RefreshCw
 } from 'lucide-react';
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart as RePieChart, 
@@ -26,7 +26,6 @@ import { Modal } from '../components/ui/Modal';
 import { LoadingSpinner, LoadingSkeleton } from '../components/ui/LoadingSpinner';
 import { useToast } from '../hooks/useToast';
 import { SummaryLevelSelector } from '../components/SummaryLevelSelector';
-
 
 // Stores
 import { useAuthStore, useTranscriptStore, useThemeStore } from '../stores/useStore';
@@ -48,6 +47,7 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTranscript, setSelectedTranscript] = useState(null);
   const [dateFilter, setDateFilter] = useState('all');
+  const [qrRetryCount, setQrRetryCount] = useState(0);
   
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -81,10 +81,9 @@ export default function Dashboard() {
         axios.get('/users/whatsapp-status'),
         axios.get('/payment/subscription'),
         axios.get('/users/profile'),
-        axios.get('/transcripts?limit=1000') // Récupérer les transcriptions pour calculer les stats
+        axios.get('/transcripts?limit=1000')
       ]);
       
-      // Calculer les stats côté client
       const stats = {
         total: transcripts.data.transcripts.length,
         totalMinutes: transcripts.data.transcripts.reduce((acc, t) => acc + (t.audioLength / 60), 0),
@@ -93,8 +92,8 @@ export default function Dashboard() {
           return acc;
         }, {}),
         recent: transcripts.data.transcripts.slice(0, 5),
-        daily: [], // Pour simplifier, on peut laisser vide ou calculer si nécessaire
-        hourly: [] // Idem
+        daily: [],
+        hourly: []
       };
       
       return {
@@ -133,24 +132,23 @@ export default function Dashboard() {
     enabled: activeSection === 'transcripts'
   });
 
-  const { data: qrCode, isLoading: qrLoading } = useQuery({
-    queryKey: ['whatsapp-qr'],
+  // WhatsApp QR Code Query
+  const { data: qrData, isLoading: qrLoading, refetch: refetchQR } = useQuery({
+    queryKey: ['whatsapp-qr', qrRetryCount],
     queryFn: async () => {
+      console.log('Fetching QR code...');
       const response = await axios.get('/transcripts/whatsapp-qr');
+      console.log('QR response:', response.data);
       return response.data;
     },
     enabled: activeSection === 'whatsapp' && !dashboardData?.whatsappStatus?.connected,
     refetchInterval: (data) => {
-      // Continue polling if no QR code yet
-      if (data?.status === 'pending' && !data?.qr) return 2000;
-      // Stop polling if connected or QR received
-      if (data?.status === 'connected' || data?.qr) return false;
-      return 2000; // Default polling interval
+      if (data?.qr || data?.status === 'connected') return false;
+      if (data?.status === 'pending') return 3000;
+      return false;
     },
-    // Force refetch on mount
-    refetchOnMount: true,
-    // Keep previous data while fetching
-    keepPreviousData: true
+    staleTime: 0,
+    cacheTime: 0,
   });
 
   // Mutations
@@ -171,6 +169,19 @@ export default function Dashboard() {
     }
   });
 
+  const regenerateQRMutation = useMutation({
+    mutationFn: async () => {
+      await axios.post('/users/whatsapp-logout');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return axios.get('/transcripts/whatsapp-qr');
+    },
+    onSuccess: () => {
+      setQrRetryCount(prev => prev + 1);
+      queryClient.invalidateQueries(['whatsapp-qr']);
+      queryClient.invalidateQueries(['dashboard']);
+    }
+  });
+
   const deleteTranscriptMutation = useMutation({
     mutationFn: (id) => axios.delete(`/transcripts/${id}`),
     onSuccess: () => {
@@ -186,6 +197,13 @@ export default function Dashboard() {
       toast.success(t('dashboard.settings.saved'));
     }
   });
+
+  // Effect for WhatsApp connection status
+  useEffect(() => {
+    if (qrData?.status === 'connected') {
+      queryClient.invalidateQueries(['dashboard']);
+    }
+  }, [qrData?.status]);
 
   // Chart data preparation
   const chartData = dashboardData?.stats ? {
@@ -510,13 +528,13 @@ export default function Dashboard() {
       <CardHeader>
         <CardTitle>{t('dashboard.whatsapp.title')}</CardTitle>
         <CardDescription>
-          {dashboardData?.whatsappStatus?.connected
+          {dashboardData?.whatsappStatus?.connected || qrData?.status === 'connected'
             ? t('dashboard.whatsapp.accountConnected')
             : t('dashboard.whatsapp.scanQRCode')}
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {dashboardData?.whatsappStatus?.connected ? (
+        {(dashboardData?.whatsappStatus?.connected || qrData?.status === 'connected') ? (
           <div className="text-center py-8">
             <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 dark:bg-green-900/20 rounded-full mb-4">
               <Check className="h-10 w-10 text-green-600" />
@@ -527,24 +545,39 @@ export default function Dashboard() {
             <Button
               variant="danger"
               onClick={() => whatsappLogoutMutation.mutate()}
+              disabled={whatsappLogoutMutation.isLoading}
             >
               {t('dashboard.whatsapp.disconnect')}
             </Button>
           </div>
         ) : (
           <div className="text-center py-8">
-            {qrCode?.qr ? (
+            {qrData?.qr ? (
               <>
-                <img
-                  src={`data:image/png;base64,${qrCode.qr}`}
-                  alt="QR Code WhatsApp"
-                  className="mx-auto mb-6 border-2 border-gray-200 dark:border-gray-700 rounded-lg"
-                />
-                <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                <div className="relative inline-block mb-6">
+                  <img
+                    src={`data:image/png;base64,${qrData.qr}`}
+                    alt="QR Code WhatsApp"
+                    className="mx-auto border-2 border-gray-200 dark:border-gray-700 rounded-lg"
+                    style={{ width: 300, height: 300 }}
+                  />
+                </div>
+                
+                <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
                   <p>{t('dashboard.whatsapp.instructions.step1')}</p>
                   <p>{t('dashboard.whatsapp.instructions.step2')}</p>
                   <p>{t('dashboard.whatsapp.instructions.step3')}</p>
                 </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => regenerateQRMutation.mutate()}
+                  disabled={regenerateQRMutation.isLoading}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  {t('dashboard.whatsapp.regenerateQR', 'Régénérer le QR')}
+                </Button>
               </>
             ) : (
               <div className="space-y-4">
@@ -552,13 +585,25 @@ export default function Dashboard() {
                   <LoadingSpinner size="lg" />
                 </div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {qrCode?.message || t('dashboard.whatsapp.generatingQR', 'Génération du QR code...')}
+                  {qrData?.message || t('dashboard.whatsapp.generatingQR', 'Génération du QR code...')}
                 </p>
-                {qrCode?.status === 'pending' && (
+                {qrData?.status === 'pending' && (
                   <p className="text-xs text-gray-500">
                     {t('dashboard.whatsapp.waitingForQR', 'Veuillez patienter quelques secondes...')}
                   </p>
                 )}
+                
+                <div className="mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => regenerateQRMutation.mutate()}
+                    disabled={regenerateQRMutation.isLoading}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    {t('dashboard.whatsapp.forceRegenerate', 'Forcer la régénération')}
+                  </Button>
+                </div>
               </div>
             )}
           </div>
@@ -733,302 +778,299 @@ export default function Dashboard() {
     </div>
   );
 
-  // À ajouter dans le fichier Dashboard.jsx, remplacer la fonction renderSettings()
-
-const renderSettings = () => (
-  <div className="space-y-6">
-    {/* Settings Card */}
-    <Card>
-      <CardHeader>
-        <CardTitle>{t('dashboard.settings.title')}</CardTitle>
-        <CardDescription>{t('dashboard.settings.description')}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            updateSettingsMutation.mutate(dashboardData?.settings);
-          }}
-          className="space-y-6"
-        >
-          {/* Language Settings */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              {t('dashboard.settings.defaultTranscriptionLanguage')}
-            </label>
-            <select
-              value={dashboardData?.settings?.transcriptionLanguage || 'fr'}
-              onChange={(e) =>
-                queryClient.setQueryData(['dashboard'], (old) => ({
-                  ...old,
-                  settings: { ...old.settings, transcriptionLanguage: e.target.value }
-                }))
-              }
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900"
-            >
-              <option value="auto">{t('dashboard.settings.languages.auto')}</option>
-              <option value="fr">{t('dashboard.settings.languages.fr')}</option>
-              <option value="en">{t('dashboard.settings.languages.en')}</option>
-              <option value="es">{t('dashboard.settings.languages.es')}</option>
-              <option value="de">{t('dashboard.settings.languages.de')}</option>
-              <option value="it">{t('dashboard.settings.languages.it')}</option>
-              <option value="pt">{t('dashboard.settings.languages.pt')}</option>
-              <option value="nl">{t('dashboard.settings.languages.nl')}</option>
-              <option value="pl">{t('dashboard.settings.languages.pl')}</option>
-              <option value="ru">{t('dashboard.settings.languages.ru')}</option>
-              <option value="ja">{t('dashboard.settings.languages.ja')}</option>
-              <option value="ko">{t('dashboard.settings.languages.ko')}</option>
-              <option value="zh">{t('dashboard.settings.languages.zh')}</option>
-            </select>
-          </div>
-
-          {/* Summary Level Selector */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              {t('dashboard.settings.summaryLevel')}
-            </label>
-            <SummaryLevelSelector
-              value={dashboardData?.settings?.summaryLevel || 'concise'}
-              onChange={(level) =>
-                queryClient.setQueryData(['dashboard'], (old) => ({
-                  ...old,
-                  settings: { ...old.settings, summaryLevel: level }
-                }))
-              }
-              disabled={dashboardData?.subscription?.plan === 'trial'}
-            />
-            {dashboardData?.subscription?.plan === 'trial' && (
-              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                {t('dashboard.settings.summaryProOnly')}
-              </p>
-            )}
-          </div>
-
-          {/* Summary Language - Only if summary is enabled */}
-          {dashboardData?.settings?.summaryLevel !== 'none' && dashboardData?.subscription?.plan !== 'trial' && (
+  const renderSettings = () => (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('dashboard.settings.title')}</CardTitle>
+          <CardDescription>{t('dashboard.settings.description')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              updateSettingsMutation.mutate(dashboardData?.settings);
+            }}
+            className="space-y-6"
+          >
+            {/* Language Settings */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {t('dashboard.settings.summaryLanguage')}
+                {t('dashboard.settings.defaultTranscriptionLanguage')}
               </label>
               <select
-                value={dashboardData?.settings?.summaryLanguage || 'same'}
+                value={dashboardData?.settings?.transcriptionLanguage || 'fr'}
                 onChange={(e) =>
                   queryClient.setQueryData(['dashboard'], (old) => ({
                     ...old,
-                    settings: { ...old.settings, summaryLanguage: e.target.value }
+                    settings: { ...old.settings, transcriptionLanguage: e.target.value }
                   }))
                 }
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900"
               >
-                <option value="same">{t('dashboard.settings.sameAsTranscription')}</option>
+                <option value="auto">{t('dashboard.settings.languages.auto')}</option>
                 <option value="fr">{t('dashboard.settings.languages.fr')}</option>
                 <option value="en">{t('dashboard.settings.languages.en')}</option>
                 <option value="es">{t('dashboard.settings.languages.es')}</option>
                 <option value="de">{t('dashboard.settings.languages.de')}</option>
                 <option value="it">{t('dashboard.settings.languages.it')}</option>
                 <option value="pt">{t('dashboard.settings.languages.pt')}</option>
+                <option value="nl">{t('dashboard.settings.languages.nl')}</option>
+                <option value="pl">{t('dashboard.settings.languages.pl')}</option>
+                <option value="ru">{t('dashboard.settings.languages.ru')}</option>
+                <option value="ja">{t('dashboard.settings.languages.ja')}</option>
+                <option value="ko">{t('dashboard.settings.languages.ko')}</option>
+                <option value="zh">{t('dashboard.settings.languages.zh')}</option>
               </select>
             </div>
-          )}
 
-          {/* Separate Conversation Toggle - Pro only */}
-          <div className="border-t pt-4">
-            <div className="flex items-start">
-              <div className="flex items-center h-5">
-                <input
-                  type="checkbox"
-                  checked={dashboardData?.settings?.separateConversation || false}
-                  onChange={(e) =>
-                    queryClient.setQueryData(['dashboard'], (old) => ({
-                      ...old,
-                      settings: { ...old.settings, separateConversation: e.target.checked }
-                    }))
-                  }
-                  disabled={dashboardData?.subscription?.plan === 'trial'}
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded disabled:opacity-50"
-                />
-              </div>
-              <div className="ml-3">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t('dashboard.settings.separateConversation')}
-                </label>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {t('dashboard.settings.separateConversationDescription')}
-                </p>
-                {dashboardData?.subscription?.plan === 'trial' && (
-                  <p className="text-sm text-primary-600 dark:text-primary-400 mt-1">
-                    {t('dashboard.settings.separateConversationProOnly')}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Auto-transcribe Toggle */}
-          <div>
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={dashboardData?.settings?.autoTranscribe !== false}
-                onChange={(e) =>
+            {/* Summary Level Selector */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {t('dashboard.settings.summaryLevel')}
+              </label>
+              <SummaryLevelSelector
+                value={dashboardData?.settings?.summaryLevel || 'concise'}
+                onChange={(level) =>
                   queryClient.setQueryData(['dashboard'], (old) => ({
                     ...old,
-                    settings: { ...old.settings, autoTranscribe: e.target.checked }
+                    settings: { ...old.settings, summaryLevel: level }
                   }))
                 }
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                disabled={dashboardData?.subscription?.plan === 'trial'}
               />
-              <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                {t('dashboard.settings.autoTranscribe')}
-              </span>
-            </label>
-          </div>
-
-          {/* Notification Preferences */}
-          <div>
-            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              {t('dashboard.settings.notifications')}
-            </h4>
-            <div className="space-y-2">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={dashboardData?.settings?.notificationPreferences?.email !== false}
-                  onChange={(e) =>
-                    queryClient.setQueryData(['dashboard'], (old) => ({
-                      ...old,
-                      settings: {
-                        ...old.settings,
-                        notificationPreferences: {
-                          ...old.settings?.notificationPreferences,
-                          email: e.target.checked
-                        }
-                      }
-                    }))
-                  }
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                />
-                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                  {t('dashboard.settings.emailNotifications')}
-                </span>
-              </label>
-              
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={dashboardData?.settings?.notificationPreferences?.usageAlerts !== false}
-                  onChange={(e) =>
-                    queryClient.setQueryData(['dashboard'], (old) => ({
-                      ...old,
-                      settings: {
-                        ...old.settings,
-                        notificationPreferences: {
-                          ...old.settings?.notificationPreferences,
-                          usageAlerts: e.target.checked
-                        }
-                      }
-                    }))
-                  }
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                />
-                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                  {t('dashboard.settings.usageAlerts')}
-                </span>
-              </label>
-            </div>
-          </div>
-
-          {/* Save Button */}
-          <div className="pt-4">
-            <Button
-              type="submit"
-              disabled={updateSettingsMutation.isLoading}
-            >
-              {updateSettingsMutation.isLoading ? (
-                <>
-                  <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
-                  {t('dashboard.settings.saving')}
-                </>
-              ) : (
-                t('dashboard.settings.save')
+              {dashboardData?.subscription?.plan === 'trial' && (
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                  {t('dashboard.settings.summaryProOnly')}
+                </p>
               )}
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+            </div>
 
-    {/* Pro Features Preview */}
-    {dashboardData?.subscription?.plan === 'trial' && (
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('dashboard.settings.proFeatures')}</CardTitle>
-          <CardDescription>{t('dashboard.settings.proFeaturesDescription')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="p-2 bg-primary-100 dark:bg-primary-900/20 rounded-lg">
-                <MessageSquare className="h-5 w-5 text-primary-600" />
-              </div>
+            {/* Summary Language */}
+            {dashboardData?.settings?.summaryLevel !== 'none' && dashboardData?.subscription?.plan !== 'trial' && (
               <div>
-                <h4 className="font-medium text-gray-900 dark:text-white">
-                  {t('dashboard.settings.proFeature1Title')}
-                </h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {t('dashboard.settings.proFeature1Description')}
-                </p>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {t('dashboard.settings.summaryLanguage')}
+                </label>
+                <select
+                  value={dashboardData?.settings?.summaryLanguage || 'same'}
+                  onChange={(e) =>
+                    queryClient.setQueryData(['dashboard'], (old) => ({
+                      ...old,
+                      settings: { ...old.settings, summaryLanguage: e.target.value }
+                    }))
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900"
+                >
+                  <option value="same">{t('dashboard.settings.sameAsTranscription')}</option>
+                  <option value="fr">{t('dashboard.settings.languages.fr')}</option>
+                  <option value="en">{t('dashboard.settings.languages.en')}</option>
+                  <option value="es">{t('dashboard.settings.languages.es')}</option>
+                  <option value="de">{t('dashboard.settings.languages.de')}</option>
+                  <option value="it">{t('dashboard.settings.languages.it')}</option>
+                  <option value="pt">{t('dashboard.settings.languages.pt')}</option>
+                </select>
+              </div>
+            )}
+
+            {/* Separate Conversation Toggle */}
+            <div className="border-t pt-4">
+              <div className="flex items-start">
+                <div className="flex items-center h-5">
+                  <input
+                    type="checkbox"
+                    checked={dashboardData?.settings?.separateConversation || false}
+                    onChange={(e) =>
+                      queryClient.setQueryData(['dashboard'], (old) => ({
+                        ...old,
+                        settings: { ...old.settings, separateConversation: e.target.checked }
+                      }))
+                    }
+                    disabled={dashboardData?.subscription?.plan === 'trial'}
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded disabled:opacity-50"
+                  />
+                </div>
+                <div className="ml-3">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('dashboard.settings.separateConversation')}
+                  </label>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {t('dashboard.settings.separateConversationDescription')}
+                  </p>
+                  {dashboardData?.subscription?.plan === 'trial' && (
+                    <p className="text-sm text-primary-600 dark:text-primary-400 mt-1">
+                      {t('dashboard.settings.separateConversationProOnly')}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
-            
-            <div className="flex items-start gap-3">
-              <div className="p-2 bg-primary-100 dark:bg-primary-900/20 rounded-lg">
-                <Zap className="h-5 w-5 text-primary-600" />
-              </div>
-              <div>
-                <h4 className="font-medium text-gray-900 dark:text-white">
-                  {t('dashboard.settings.proFeature2Title')}
-                </h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {t('dashboard.settings.proFeature2Description')}
-                </p>
+
+            {/* Auto-transcribe Toggle */}
+            <div>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={dashboardData?.settings?.autoTranscribe !== false}
+                  onChange={(e) =>
+                    queryClient.setQueryData(['dashboard'], (old) => ({
+                      ...old,
+                      settings: { ...old.settings, autoTranscribe: e.target.checked }
+                    }))
+                  }
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                />
+                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                  {t('dashboard.settings.autoTranscribe')}
+                </span>
+              </label>
+            </div>
+
+            {/* Notification Preferences */}
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                {t('dashboard.settings.notifications')}
+              </h4>
+              <div className="space-y-2">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={dashboardData?.settings?.notificationPreferences?.email !== false}
+                    onChange={(e) =>
+                      queryClient.setQueryData(['dashboard'], (old) => ({
+                        ...old,
+                        settings: {
+                          ...old.settings,
+                          notificationPreferences: {
+                            ...old.settings?.notificationPreferences,
+                            email: e.target.checked
+                          }
+                        }
+                      }))
+                    }
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  />
+                  <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                    {t('dashboard.settings.emailNotifications')}
+                  </span>
+                </label>
+                
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={dashboardData?.settings?.notificationPreferences?.usageAlerts !== false}
+                    onChange={(e) =>
+                      queryClient.setQueryData(['dashboard'], (old) => ({
+                        ...old,
+                        settings: {
+                          ...old.settings,
+                          notificationPreferences: {
+                            ...old.settings?.notificationPreferences,
+                            usageAlerts: e.target.checked
+                          }
+                        }
+                      }))
+                    }
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  />
+                  <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                    {t('dashboard.settings.usageAlerts')}
+                  </span>
+                </label>
               </div>
             </div>
-            
-            <div className="flex items-start gap-3">
-              <div className="p-2 bg-primary-100 dark:bg-primary-900/20 rounded-lg">
-                <Languages className="h-5 w-5 text-primary-600" />
-              </div>
-              <div>
-                <h4 className="font-medium text-gray-900 dark:text-white">
-                  {t('dashboard.settings.proFeature3Title')}
-                </h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {t('dashboard.settings.proFeature3Description')}
-                </p>
-              </div>
+
+            {/* Save Button */}
+            <div className="pt-4">
+              <Button
+                type="submit"
+                disabled={updateSettingsMutation.isLoading}
+              >
+                {updateSettingsMutation.isLoading ? (
+                  <>
+                    <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                    {t('dashboard.settings.saving')}
+                  </>
+                ) : (
+                  t('dashboard.settings.save')
+                )}
+              </Button>
             </div>
-          </div>
-          
-          <div className="mt-6">
-            <Button
-              onClick={async () => {
-                const response = await axios.post('/payment/create-checkout-session', {
-                  planId: 'pro'
-                });
-                window.location.href = response.data.url;
-              }}
-              className="w-full"
-            >
-              {t('dashboard.settings.upgradeToPro')}
-              <ChevronRight className="ml-2 h-4 w-4" />
-            </Button>
-          </div>
+          </form>
         </CardContent>
       </Card>
-    )}
-  </div>
-);
+
+      {/* Pro Features Preview */}
+      {dashboardData?.subscription?.plan === 'trial' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('dashboard.settings.proFeatures')}</CardTitle>
+            <CardDescription>{t('dashboard.settings.proFeaturesDescription')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-primary-100 dark:bg-primary-900/20 rounded-lg">
+                  <MessageSquare className="h-5 w-5 text-primary-600" />
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-900 dark:text-white">
+                    {t('dashboard.settings.proFeature1Title')}
+                  </h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {t('dashboard.settings.proFeature1Description')}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-primary-100 dark:bg-primary-900/20 rounded-lg">
+                  <Zap className="h-5 w-5 text-primary-600" />
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-900 dark:text-white">
+                    {t('dashboard.settings.proFeature2Title')}
+                  </h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {t('dashboard.settings.proFeature2Description')}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-primary-100 dark:bg-primary-900/20 rounded-lg">
+                  <Languages className="h-5 w-5 text-primary-600" />
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-900 dark:text-white">
+                    {t('dashboard.settings.proFeature3Title')}
+                  </h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {t('dashboard.settings.proFeature3Description')}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-6">
+              <Button
+                onClick={async () => {
+                  const response = await axios.post('/payment/create-checkout-session', {
+                    planId: 'pro'
+                  });
+                  window.location.href = response.data.url;
+                }}
+                className="w-full"
+              >
+                {t('dashboard.settings.upgradeToPro')}
+                <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
 
   if (!user) {
     navigate('/login');
