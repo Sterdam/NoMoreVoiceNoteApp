@@ -17,6 +17,45 @@ const {
 const { t } = require('../utils/translate');
 
 // Important : les routes spécifiques doivent être AVANT les routes avec paramètres
+// Obtenir le QR code pour la connexion WhatsApp
+router.get('/whatsapp-qr', auth, async (req, res) => {
+    try {
+        if (!req.user || !req.user._id) {
+            return res.status(401).json({ error: t('auth.user_not_authenticated', req) });
+        }
+
+        const userId = req.user._id.toString();
+        
+        // Vérifier d'abord si WhatsApp est déjà connecté
+        const isConnected = await WhatsAppService.isConnected(userId);
+        if (isConnected) {
+            return res.json({ status: 'connected' });
+        }
+
+        // Si pas connecté, obtenir ou générer un QR code
+        const qrResult = await WhatsAppService.getQRCode(userId);
+        
+        if (!qrResult) {
+            return res.status(202).json({
+                status: 'pending',
+                message: t('transcripts.whatsapp.qr_generating', req)
+            });
+        }
+
+        // Retourner directement le résultat de getQRCode
+        res.json(qrResult);
+    } catch (error) {
+        LogService.error('Error in whatsapp-qr route:', {
+            userId: req.user?._id,
+            error: error.message,
+            stack: error.stack
+        });
+        res.status(500).json({
+            error: t('transcripts.whatsapp.qr_generation_error', req),
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+});
 
 // Middleware pour vérifier les limites du plan
 const checkPlanLimits = async (req, res, next) => {
@@ -69,45 +108,7 @@ const checkPlanLimits = async (req, res, next) => {
     }
 };
 
-// Obtenir le QR code pour la connexion WhatsApp
-router.get('/whatsapp-qr', auth, async (req, res) => {
-    try {
-        if (!req.user || !req.user._id) {
-            return res.status(401).json({ error: t('auth.user_not_authenticated', req) });
-        }
 
-        const userId = req.user._id.toString();
-        
-        // Vérifier d'abord si WhatsApp est déjà connecté
-        const isConnected = await WhatsAppService.isConnected(userId);
-        if (isConnected) {
-            return res.json({ status: 'connected' });
-        }
-
-        // Si pas connecté, obtenir ou générer un QR code
-        const qrResult = await WhatsAppService.getQRCode(userId);
-        
-        if (!qrResult) {
-            return res.status(202).json({
-                status: 'pending',
-                message: t('transcripts.whatsapp.qr_generating', req)
-            });
-        }
-
-        // Retourner directement le résultat de getQRCode
-        res.json(qrResult);
-    } catch (error) {
-        LogService.error('Error in whatsapp-qr route:', {
-            userId: req.user?._id,
-            error: error.message,
-            stack: error.stack
-        });
-        res.status(500).json({
-            error: t('transcripts.whatsapp.qr_generation_error', req),
-            details: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
-    }
-});
 
 // Vérifier le statut de WhatsApp
 router.get('/whatsapp-status', auth, async (req, res) => {

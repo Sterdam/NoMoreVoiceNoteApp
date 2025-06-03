@@ -28,7 +28,7 @@ import { SummaryLevelSelector } from '../components/SummaryLevelSelector';
 
 // Stores
 import { useAuthStore, useTranscriptStore, useThemeStore } from '../stores/useStore';
-import axios from '../utils/api';
+import api from '../utils/api';
 
 const sidebarItems = [
   { icon: LayoutDashboard, label: 'dashboard.sidebar.overview', path: 'overview' },
@@ -128,7 +128,7 @@ export default function Dashboard() {
   // Function to check WhatsApp status
   const checkWhatsAppStatus = async () => {
     try {
-      const response = await axios.get('/users/whatsapp-status');
+      const response = await api.get('/users/whatsapp-status');
       const isConnected = response.data.connected;
       setWhatsappStatus(isConnected ? 'connected' : 'disconnected');
       
@@ -152,7 +152,7 @@ export default function Dashboard() {
   const fetchQRCode = async () => {
     try {
       setQrLoading(true);
-      const response = await axios.get('/transcripts/whatsapp-qr');
+      const response = await api.get('/transcripts/whatsapp-qr');
       
       if (response.data.status === 'connected') {
         setWhatsappStatus('connected');
@@ -188,7 +188,7 @@ export default function Dashboard() {
     // Poll every 3 seconds
     qrPollingInterval.current = setInterval(async () => {
       try {
-        const response = await axios.get('/transcripts/whatsapp-qr');
+        const response = await api.get('/transcripts/whatsapp-qr');
         
         if (response.data.status === 'connected') {
           setWhatsappStatus('connected');
@@ -229,10 +229,10 @@ export default function Dashboard() {
     queryKey: ['dashboard'],
     queryFn: async () => {
       const [status, subscription, profile, transcripts] = await Promise.all([
-        axios.get('/users/whatsapp-status'),
-        axios.get('/payment/subscription'),
-        axios.get('/users/profile'),
-        axios.get('/transcripts?limit=1000')
+        api.get('/users/whatsapp-status'),
+        api.get('/payment/subscription'),
+        api.get('/users/profile'),
+        api.get('/transcripts?limit=1000')
       ]);
       
       const stats = {
@@ -278,7 +278,7 @@ export default function Dashboard() {
             break;
         }
       }
-      const response = await axios.get('/transcripts', { params });
+      const response = await api.get('/transcripts', { params });
       setTranscripts(response.data.transcripts);
       return response.data.transcripts;
     },
@@ -287,7 +287,7 @@ export default function Dashboard() {
 
   // Mutations
   const logoutMutation = useMutation({
-    mutationFn: () => axios.post('/auth/logout'),
+    mutationFn: () => api.post('/auth/logout'),
     onSuccess: () => {
       logout();
       window.location.href = '/login';
@@ -295,7 +295,7 @@ export default function Dashboard() {
   });
 
   const whatsappLogoutMutation = useMutation({
-    mutationFn: () => axios.post('/users/whatsapp-logout'),
+    mutationFn: () => api.post('/users/whatsapp-logout'),
     onSuccess: () => {
       setWhatsappStatus('disconnected');
       setQrCode(null);
@@ -311,7 +311,7 @@ export default function Dashboard() {
   const regenerateQRMutation = useMutation({
     mutationFn: async () => {
       // First disconnect
-      await axios.post('/users/whatsapp-logout');
+      await api.post('/users/whatsapp-logout');
       setWhatsappStatus('disconnected');
       setQrCode(null);
       // Wait a bit
@@ -326,7 +326,7 @@ export default function Dashboard() {
   });
 
   const deleteTranscriptMutation = useMutation({
-    mutationFn: (id) => axios.delete(`/transcripts/${id}`),
+    mutationFn: (id) => api.delete(`/transcripts/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries(['transcripts']);
       toast.success(t('dashboard.transcriptions.deleted'));
@@ -334,7 +334,7 @@ export default function Dashboard() {
   });
 
   const updateSettingsMutation = useMutation({
-    mutationFn: (settings) => axios.patch('/users/profile', { settings }),
+    mutationFn: (settings) => api.patch('/users/profile', { settings }),
     onSuccess: () => {
       queryClient.invalidateQueries(['dashboard']);
       toast.success(t('dashboard.settings.saved'));
@@ -807,7 +807,7 @@ export default function Dashboard() {
               <Button
                 variant="outline"
                 onClick={async () => {
-                  const response = await axios.post('/payment/create-portal-session');
+                  const response = await api.post('/payment/create-portal-session');
                   window.location.href = response.data.url;
                 }}
               >
@@ -933,7 +933,7 @@ export default function Dashboard() {
                   className="w-full"
                   disabled={isCurrentPlan}
                   onClick={async () => {
-                    const response = await axios.post('/payment/create-checkout-session', {
+                    const response = await api.post('/payment/create-checkout-session', {
                       planId: planKey
                     });
                     window.location.href = response.data.url;
@@ -1222,7 +1222,7 @@ export default function Dashboard() {
             <div className="mt-6">
               <Button
                 onClick={async () => {
-                  const response = await axios.post('/payment/create-checkout-session', {
+                  const response = await api.post('/payment/create-checkout-session', {
                     planId: 'pro'
                   });
                   window.location.href = response.data.url;
