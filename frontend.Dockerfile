@@ -14,6 +14,8 @@ RUN npm install
 # Copier le reste des fichiers
 COPY frontend/ .
 
+# Exposer le port
 EXPOSE 5173
 
-CMD ["npm", "run", "dev", "--", "--host"]
+# Commande de démarrage avec hot reload
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

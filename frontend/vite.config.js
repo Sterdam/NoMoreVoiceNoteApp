@@ -8,19 +8,26 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        // Utiliser le nom du service Docker
+        target: 'http://backend:3000',
         changeOrigin: true,
         secure: false,
         ws: true,
         configure: (proxy, _options) => {
-          proxy.on('error', (err, _req, _res) => {
+          proxy.on('error', (err, _req, res) => {
             console.log('proxy error', err);
+            if (res && res.writeHead) {
+              res.writeHead(500, {
+                'Content-Type': 'text/plain',
+              });
+              res.end('Proxy error: Could not connect to backend server');
+            }
           });
           proxy.on('proxyReq', (proxyReq, req, _res) => {
-            console.log('Sending Request:', req.method, req.url);
+            console.log('[PROXY] Request:', req.method, req.url);
           });
           proxy.on('proxyRes', (proxyRes, req, _res) => {
-            console.log('Received Response:', proxyRes.statusCode, req.url);
+            console.log('[PROXY] Response:', proxyRes.statusCode, req.url);
           });
         }
       }
@@ -28,5 +35,6 @@ export default defineConfig({
     watch: {
       usePolling: true
     }
-  }
+  },
+  base: '/'
 })

@@ -2,20 +2,21 @@ import axios from 'axios';
 
 // Configuration de l'URL de base selon l'environnement
 const getApiBaseUrl = () => {
-  // En développement, on utilise le proxy de Vite
+  // En développement, utiliser une URL relative pour le proxy
   if (import.meta.env.MODE === 'development') {
-    // Important: pas de domaine complet, juste /api pour utiliser le proxy
-    return '/api';
+    return ''; // Pas de base URL, utiliser des URLs relatives
   }
   
-  // En production
-  return import.meta.env.VITE_API_URL || '/api';
+  // En production, utiliser l'URL de l'API ou une URL relative
+  return import.meta.env.VITE_API_URL || '';
 };
 
 const API_BASE_URL = getApiBaseUrl();
 
-console.log('API Base URL:', API_BASE_URL);
+console.log('Environment:', import.meta.env.MODE);
+console.log('API Base URL:', API_BASE_URL || 'Using relative URLs');
 
+// Créer l'instance axios
 const api = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
@@ -23,7 +24,7 @@ const api = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json'
   },
-  timeout: 30000 // 30 secondes
+  timeout: 30000, // 30 secondes
 });
 
 // Variable pour stocker le token CSRF
@@ -44,14 +45,16 @@ const getCSRFToken = async () => {
   // Créer une nouvelle promesse pour éviter les requêtes multiples
   csrfPromise = (async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/csrf-token`, { 
+      // Utiliser une URL relative
+      const response = await axios.get('/api/csrf-token', { 
         withCredentials: true,
         timeout: 5000
       });
       csrfToken = response.data.csrfToken;
+      console.log('CSRF token obtained:', csrfToken ? 'yes' : 'no');
       return csrfToken;
     } catch (error) {
-      console.error('Failed to get CSRF token:', error);
+      console.error('Failed to get CSRF token:', error.message);
       // En dev, on continue sans CSRF
       if (import.meta.env.MODE === 'development') {
         csrfToken = 'dev-csrf-token';
@@ -69,8 +72,13 @@ const getCSRFToken = async () => {
 // Intercepteur pour ajouter le token CSRF aux requêtes
 api.interceptors.request.use(
   async (config) => {
+    // S'assurer que l'URL commence par /api
+    if (!config.url.startsWith('/api')) {
+      config.url = `/api${config.url.startsWith('/') ? '' : '/'}${config.url}`;
+    }
+    
     // Log pour debug
-    console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`);
+    console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`);
     
     // Ajouter le token CSRF pour les requêtes qui modifient des données
     if (['post', 'put', 'patch', 'delete'].includes(config.method)) {
@@ -78,12 +86,6 @@ api.interceptors.request.use(
       if (token) {
         config.headers['X-CSRF-Token'] = token;
       }
-    }
-    
-    // S'assurer que l'URL est correcte
-    if (config.url && !config.url.startsWith('http')) {
-      // Si l'URL ne commence pas par http, c'est une URL relative
-      config.url = config.url.startsWith('/') ? config.url : `/${config.url}`;
     }
     
     return config;
@@ -97,30 +99,46 @@ api.interceptors.request.use(
 // Intercepteur pour gérer les réponses et erreurs
 api.interceptors.response.use(
   response => {
-    console.log(`API Response: ${response.status} ${response.config.url}`);
+    console.log(`[API] Response: ${response.status} ${response.config.url}`);
     return response;
   },
   async error => {
-    console.error('API Error:', error.config?.url, error.response?.status, error.message);
+    const originalRequest = error.config;
     
-    if (error.response?.status === 401) {
-      // Ne pas rediriger si on est déjà sur la page de login
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
-      }
-    } else if (error.response?.status === 403 && error.response?.data?.error?.includes('CSRF')) {
-      // Réessayer avec un nouveau token CSRF
-      csrfToken = null;
-      const originalRequest = error.config;
+    console.error('[API] Error:', {
+      url: originalRequest?.url,
+      status: error.response?.status,
+      message: error.message,
+      data: error.response?.data
+    });
+    
+    // Gestion du 401 (non authentifié)
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
       
-      if (!originalRequest._retry) {
-        originalRequest._retry = true;
-        
-        const token = await getCSRFToken();
-        if (token) {
-          originalRequest.headers['X-CSRF-Token'] = token;
-          return api(originalRequest);
-        }
+      // Ne pas rediriger si on est déjà sur la page de login
+      if (!window.location.pathname.includes('/login') && 
+          !originalRequest.url.includes('/auth/status')) {
+        window.location.href = '/login';
+        return Promise.reject(error);
+      }
+    }
+    
+    // Gestion du 403 CSRF
+    if (error.response?.status === 403 && 
+        error.response?.data?.error?.includes('CSRF') && 
+        !originalRequest._retryCSRF) {
+      console.log('CSRF error detected, retrying with new token...');
+      originalRequest._retryCSRF = true;
+      
+      // Réinitialiser le token CSRF
+      csrfToken = null;
+      
+      // Obtenir un nouveau token
+      const token = await getCSRFToken();
+      if (token) {
+        originalRequest.headers['X-CSRF-Token'] = token;
+        return api(originalRequest);
       }
     }
     
@@ -128,7 +146,7 @@ api.interceptors.response.use(
   }
 );
 
-// API endpoints
+// API endpoints - utiliser des chemins relatifs sans /api car il sera ajouté par l'intercepteur
 export const auth = {
   login: async (credentials) => {
     const response = await api.post('/auth/login', credentials);
@@ -237,4 +255,5 @@ export const payment = {
   }
 };
 
+// Export default de l'instance axios pour les cas spéciaux
 export default api;
