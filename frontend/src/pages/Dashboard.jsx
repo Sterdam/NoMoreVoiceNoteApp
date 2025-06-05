@@ -28,7 +28,8 @@ import { SummaryLevelSelector } from '../components/SummaryLevelSelector';
 
 // Stores
 import { useAuthStore, useTranscriptStore, useThemeStore } from '../stores/useStore';
-import api from '../utils/api';
+import api, { auth, users, transcripts, payment } from '../utils/api';
+
 
 const sidebarItems = [
   { icon: LayoutDashboard, label: 'dashboard.sidebar.overview', path: 'overview' },
@@ -128,8 +129,8 @@ export default function Dashboard() {
   // Function to check WhatsApp status
   const checkWhatsAppStatus = async () => {
     try {
-      const response = await api.get('/users/whatsapp-status');
-      const isConnected = response.data.connected;
+      const response = await users.getWhatsAppStatus();
+      const isConnected = response.connected;
       setWhatsappStatus(isConnected ? 'connected' : 'disconnected');
       
       // If connected, clear QR code and stop polling
@@ -152,9 +153,9 @@ export default function Dashboard() {
   const fetchQRCode = async () => {
     try {
       setQrLoading(true);
-      const response = await api.get('/transcripts/whatsapp-qr');
+      const response = await transcripts.getWhatsAppQR();
       
-      if (response.data.status === 'connected') {
+      if (response.status === 'connected') {
         setWhatsappStatus('connected');
         setQrCode(null);
         if (qrPollingInterval.current) {
@@ -162,10 +163,10 @@ export default function Dashboard() {
           qrPollingInterval.current = null;
         }
         queryClient.invalidateQueries(['dashboard']);
-      } else if (response.data.qr) {
-        setQrCode(response.data.qr);
+      } else if (response.qr) {
+        setQrCode(response.qr);
         setWhatsappStatus('pending');
-      } else if (response.data.status === 'pending') {
+      } else if (response.status === 'pending') {
         // Keep polling if QR is being generated
         if (!qrPollingInterval.current) {
           startQRPolling();
@@ -188,17 +189,17 @@ export default function Dashboard() {
     // Poll every 3 seconds
     qrPollingInterval.current = setInterval(async () => {
       try {
-        const response = await api.get('/transcripts/whatsapp-qr');
+        const response = await transcripts.getWhatsAppQR();
         
-        if (response.data.status === 'connected') {
+        if (response.status === 'connected') {
           setWhatsappStatus('connected');
           setQrCode(null);
           clearInterval(qrPollingInterval.current);
           qrPollingInterval.current = null;
           queryClient.invalidateQueries(['dashboard']);
           toast.success(t('dashboard.whatsapp.connected'));
-        } else if (response.data.qr) {
-          setQrCode(response.data.qr);
+        } else if (response.qr) {
+          setQrCode(response.qr);
           setWhatsappStatus('pending');
         }
       } catch (error) {
@@ -228,38 +229,38 @@ export default function Dashboard() {
   const { data: dashboardData, isLoading: loadingDashboard } = useQuery({
     queryKey: ['dashboard'],
     queryFn: async () => {
-      const [status, subscription, profile, transcripts] = await Promise.all([
-        api.get('/users/whatsapp-status'),
-        api.get('/payment/subscription'),
-        api.get('/users/profile'),
-        api.get('/transcripts?limit=1000')
+      const [status, subscription, profile, transcriptsList] = await Promise.all([
+        users.getWhatsAppStatus(),
+        payment.getSubscription(),
+        users.getProfile(),
+        transcripts.getAll({ limit: 1000 })
       ]);
       
       const stats = {
-        total: transcripts.data.transcripts.length,
-        totalMinutes: transcripts.data.transcripts.reduce((acc, t) => acc + (t.audioLength / 60), 0),
-        languages: transcripts.data.transcripts.reduce((acc, t) => {
+        total: transcriptsList.transcripts.length,
+        totalMinutes: transcriptsList.transcripts.reduce((acc, t) => acc + (t.audioLength / 60), 0),
+        languages: transcriptsList.transcripts.reduce((acc, t) => {
           acc[t.language] = (acc[t.language] || 0) + 1;
           return acc;
         }, {}),
-        recent: transcripts.data.transcripts.slice(0, 5),
+        recent: transcriptsList.transcripts.slice(0, 5),
         daily: [],
         hourly: []
       };
       
-      setWhatsappStatus(status.data.connected ? 'connected' : 'disconnected');
+      setWhatsappStatus(status.connected ? 'connected' : 'disconnected');
       
       return {
-        whatsappStatus: status.data,
-        subscription: subscription.data.subscription,
-        usage: subscription.data.usage,
-        settings: profile.data.settings,
+        whatsappStatus: status,
+        subscription: subscription.subscription,
+        usage: subscription.usage,
+        settings: profile.settings,
         stats
       };
     }
   });
 
-  const { data: transcripts, isLoading: loadingTranscripts } = useQuery({
+  const { data: transcriptsList, isLoading: loadingTranscripts } = useQuery({
     queryKey: ['transcripts', searchQuery, dateFilter],
     queryFn: async () => {
       const params = {};
@@ -278,16 +279,16 @@ export default function Dashboard() {
             break;
         }
       }
-      const response = await api.get('/transcripts', { params });
-      setTranscripts(response.data.transcripts);
-      return response.data.transcripts;
+      const response = await transcripts.getAll(params);
+      setTranscripts(response.transcripts);
+      return response.transcripts;
     },
     enabled: activeSection === 'transcripts'
   });
 
   // Mutations
   const logoutMutation = useMutation({
-    mutationFn: () => api.post('/auth/logout'),
+    mutationFn: () => auth.logout(),
     onSuccess: () => {
       logout();
       window.location.href = '/login';
@@ -295,7 +296,7 @@ export default function Dashboard() {
   });
 
   const whatsappLogoutMutation = useMutation({
-    mutationFn: () => api.post('/users/whatsapp-logout'),
+    mutationFn: () => users.whatsappLogout(),
     onSuccess: () => {
       setWhatsappStatus('disconnected');
       setQrCode(null);
@@ -311,7 +312,7 @@ export default function Dashboard() {
   const regenerateQRMutation = useMutation({
     mutationFn: async () => {
       // First disconnect
-      await api.post('/users/whatsapp-logout');
+      await users.whatsappLogout();
       setWhatsappStatus('disconnected');
       setQrCode(null);
       // Wait a bit
@@ -326,7 +327,7 @@ export default function Dashboard() {
   });
 
   const deleteTranscriptMutation = useMutation({
-    mutationFn: (id) => api.delete(`/transcripts/${id}`),
+    mutationFn: (id) => transcripts.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries(['transcripts']);
       toast.success(t('dashboard.transcriptions.deleted'));
@@ -334,7 +335,7 @@ export default function Dashboard() {
   });
 
   const updateSettingsMutation = useMutation({
-    mutationFn: (settings) => api.patch('/users/profile', { settings }),
+    mutationFn: (settings) => users.updateProfile({ settings }),
     onSuccess: () => {
       queryClient.invalidateQueries(['dashboard']);
       toast.success(t('dashboard.settings.saved'));
@@ -523,7 +524,7 @@ export default function Dashboard() {
                     {transcript.metadata?.fromNumber || 'Unknown'}
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {format(new Date(transcript.createdAt), 'dd MMM yyyy à HH:mm', { locale: fr })}
+                    {formatDate(transcript.createdAt, 'dd MMM yyyy à HH:mm')}
                   </p>
                 </div>
                 <div className="flex items-center gap-4">
@@ -603,7 +604,7 @@ export default function Dashboard() {
         <Card>
           <CardContent className="p-6">
             <div className="space-y-4">
-              {transcripts?.map((transcript) => (
+              {transcriptsList?.map((transcript) => (
                 <motion.div
                   key={transcript._id}
                   initial={{ opacity: 0, x: -20 }}
@@ -649,7 +650,7 @@ export default function Dashboard() {
                 </motion.div>
               ))}
               
-              {transcripts?.length === 0 && (
+              {transcriptsList?.length === 0 && (
                 <div className="text-center py-12">
                   <Mic className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-600 dark:text-gray-400">
@@ -807,8 +808,8 @@ export default function Dashboard() {
               <Button
                 variant="outline"
                 onClick={async () => {
-                  const response = await api.post('/payment/create-portal-session');
-                  window.location.href = response.data.url;
+                  const response = await payment.createPortalSession();
+                  window.location.href = response.url;
                 }}
               >
                 {t('dashboard.subscription.manage')}
@@ -933,10 +934,8 @@ export default function Dashboard() {
                   className="w-full"
                   disabled={isCurrentPlan}
                   onClick={async () => {
-                    const response = await api.post('/payment/create-checkout-session', {
-                      planId: planKey
-                    });
-                    window.location.href = response.data.url;
+                    const response = await payment.createCheckoutSession(planKey);
+                    window.location.href = response.url;
                   }}
                 >
                   {isCurrentPlan ? t('dashboard.subscription.currentPlan') : t('dashboard.subscription.choosePlan')}
@@ -1222,10 +1221,8 @@ export default function Dashboard() {
             <div className="mt-6">
               <Button
                 onClick={async () => {
-                  const response = await api.post('/payment/create-checkout-session', {
-                    planId: 'pro'
-                  });
-                  window.location.href = response.data.url;
+                  const response = await payment.createCheckoutSession('pro');
+                  window.location.href = response.url;
                 }}
                 className="w-full"
               >
@@ -1380,9 +1377,7 @@ export default function Dashboard() {
                 </p>
                 <p className="text-sm">
                   <span className="font-medium">{t('dashboard.transcriptions.date')}:</span>{' '}
-                  {format(new Date(selectedTranscript.createdAt), 'dd MMMM yyyy à HH:mm', {
-                    locale: fr
-                  })}
+                  {formatDate(selectedTranscript.createdAt, 'dd MMMM yyyy à HH:mm')}
                 </p>
                 <p className="text-sm">
                   <span className="font-medium">{t('dashboard.transcriptions.duration')}:</span> {selectedTranscript.audioLength} {t('dashboard.transcriptions.seconds')}
