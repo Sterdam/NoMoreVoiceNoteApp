@@ -1,0 +1,298 @@
+
+{
+  "common": {
+    "back": "Back",
+    "close": "Close",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success"
+  },
+  "languages": {
+    "fr": "Français",
+    "en": "English"
+  },
+  "login": {
+    "title": "Sign In",
+    "subtitle": "Sign in to your VoxKill account",
+    "form": {
+      "email": "Email address",
+      "emailPlaceholder": "you@example.com",
+      "password": "Password",
+      "passwordPlaceholder": "••••••••",
+      "rememberMe": "Remember me",
+      "forgotPassword": "Forgot password?",
+      "submit": "Sign in"
+    },
+    "errors": {
+      "emailRequired": "Email is required",
+      "invalidEmail": "Invalid email",
+      "passwordRequired": "Password is required",
+      "invalidCredentials": "Invalid email or password",
+      "generic": "An error occurred during login"
+    },
+    "success": "Login successful! Redirecting...",
+    "noAccount": "Don't have an account?",
+    "signUp": "Sign up",
+    "hero": {
+      "title": "Transform your voice messages into text instantly",
+      "subtitle": "Stop wasting time listening to long voice messages"
+    },
+    "features": {
+      "transcription": {
+        "title": "Accurate transcription",
+        "description": "State-of-the-art AI for exceptional accuracy"
+      },
+      "whatsapp": {
+        "title": "WhatsApp Integration",
+        "description": "Direct and secure connection to your account"
+      },
+      "realtime": {
+        "title": "Real-time",
+        "description": "Receive your transcriptions instantly"
+      },
+      "multilingual": {
+        "title": "Multilingual support",
+        "description": "Over 50 languages supported"
+      }
+    },
+    "security": {
+      "title": "Secure Connection",
+      "description": "Your data is encrypted and protected according to the highest standards"
+    }
+  },
+  "register": {
+    "title": "Create Account",
+    "subtitle": "Join VoxKill and start your free trial",
+    "form": {
+      "email": "Email address",
+      "emailPlaceholder": "you@example.com",
+      "password": "Password",
+      "passwordPlaceholder": "Minimum 8 characters",
+      "confirmPassword": "Confirm password",
+      "confirmPasswordPlaceholder": "Repeat your password",
+      "whatsappNumber": "WhatsApp Number",
+      "whatsappHint": "International format with country code",
+      "agreeToTerms": "I agree to the",
+      "termsOfService": "terms of service",
+      "and": "and",
+      "privacyPolicy": "privacy policy",
+      "submit": "Create my account"
+    },
+    "errors": {
+      "emailRequired": "Email is required",
+      "invalidEmail": "Invalid email",
+      "emailTaken": "This email is already in use",
+      "passwordRequired": "Password is required",
+      "passwordTooShort": "Password must be at least 8 characters",
+      "confirmPasswordRequired": "Please confirm your password",
+      "passwordsMismatch": "Passwords do not match",
+      "whatsappRequired": "WhatsApp number is required",
+      "invalidWhatsapp": "Invalid WhatsApp number",
+      "whatsappTaken": "This WhatsApp number is already in use",
+      "termsRequired": "You must accept the terms",
+      "generic": "An error occurred during registration"
+    },
+    "password": {
+      "length": "At least 8 characters",
+      "uppercase": "One uppercase letter",
+      "lowercase": "One lowercase letter",
+      "number": "One number"
+    },
+    "success": "Account created successfully! Redirecting...",
+    "alreadyHaveAccount": "Already have an account?",
+    "signIn": "Sign in",
+    "hero": {
+      "title": "Start your 7-day free trial",
+      "subtitle": "No credit card required • Cancel anytime"
+    },
+    "benefits": {
+      "instant": {
+        "title": "Instant setup",
+        "description": "Connect WhatsApp in 30 seconds with a simple QR code"
+      },
+      "multilingual": {
+        "title": "Multilingual support",
+        "description": "Transcription in over 50 languages with automatic detection"
+      },
+      "secure": {
+        "title": "Maximum security",
+        "description": "End-to-end encryption and GDPR compliance"
+      },
+      "trial": {
+        "title": "Full free trial",
+        "description": "7 days of unlimited access, no commitment"
+      }
+    },
+    "testimonial": {
+      "title": "What our users say",
+      "quote": "VoxKill has revolutionized how I handle voice messages. I no longer waste time and can easily find important information.",
+      "author": "Sarah M., Marketing Director"
+    }
+  },
+  "dashboard": {
+    "sidebar": {
+      "overview": "Overview",
+      "transcriptions": "Transcriptions",
+      "whatsapp": "WhatsApp",
+      "subscription": "Subscription",
+      "settings": "Settings",
+      "plan": "Plan",
+      "logout": "Logout"
+    },
+    "overview": {
+      "totalTranscriptions": "Total transcriptions",
+      "transcribedMinutes": "Transcribed minutes",
+      "detectedLanguages": "Detected languages",
+      "whatsappStatus": "WhatsApp Status",
+      "connected": "Connected",
+      "disconnected": "Disconnected",
+      "dailyActivity": "Daily Activity",
+      "transcriptionsPerDay": "Transcriptions per day",
+      "languageDistribution": "Language distribution",
+      "recentTranscriptions": "Recent Transcriptions",
+      "last5Transcriptions": "Your last 5 transcriptions",
+      "noRecentTranscriptions": "No recent transcriptions"
+    },
+    "transcriptions": {
+      "search": "Search transcriptions...",
+      "allDates": "All dates",
+      "today": "Today",
+      "thisWeek": "This week",
+      "thisMonth": "This month",
+      "export": "Export",
+      "view": "View",
+      "deleted": "Transcription deleted",
+      "noTranscriptions": "No transcriptions found",
+      "details": "Transcription Details",
+      "information": "Information",
+      "phoneNumber": "Number",
+      "date": "Date",
+      "duration": "Duration",
+      "seconds": "seconds",
+      "language": "Language",
+      "transcription": "Transcription",
+      "summary": "Summary",
+      "copyText": "Copy text",
+      "close": "Close",
+      "copied": "Text copied to clipboard"
+    },
+    "whatsapp": {
+      "title": "WhatsApp Connection",
+      "accountConnected": "Your WhatsApp account is connected",
+      "scanQRCode": "Scan the QR code to connect WhatsApp",
+      "readyToReceive": "Ready to receive and transcribe your voice messages",
+      "disconnect": "Disconnect",
+      "disconnecting": "Disconnecting...",
+      "disconnected": "WhatsApp disconnected",
+      "instructions": {
+        "step1": "1. Open WhatsApp on your phone",
+        "step2": "2. Go to Settings > WhatsApp Web",
+        "step3": "3. Scan this QR code"
+      },
+      "generatingQR": "Generating QR code...",
+      "waitingForQR": "Please wait while generating the code",
+      "regenerateQR": "Regenerate QR code",
+      "regenerating": "Regenerating...",
+      "retry": "Retry",
+      "loading": "Loading...",
+      "connected": "WhatsApp connected successfully!",
+      "qrGenerationError": "Error generating QR code",
+      "regenerateError": "Error regenerating"
+    },
+    "subscription": {
+      "currentPlan": "Current Plan",
+      "manageSubscription": "Manage your subscription",
+      "daysRemaining": "days remaining",
+      "manage": "Manage",
+      "month": "month",
+      "choosePlan": "Choose this plan",
+      "currentPlanBadge": "Current plan",
+      "usage": {
+        "minutesUsed": "Minutes used",
+        "transcriptions": "transcriptions",
+        "minutesRemaining": "minutes remaining out of",
+        "summariesUsed": "Summaries used",
+        "summaries": "summaries",
+        "summariesRemaining": "summaries remaining out of"
+      },
+      "features": {
+        "hoursTranscription": "hours of transcription",
+        "summaries": "smart summaries",
+        "audioUpTo": "Audio up to {{minutes}} min",
+        "multiLanguage": "All languages",
+        "priorityProcessing": "Priority processing"
+      }
+    },
+    "settings": {
+      "title": "Settings",
+      "description": "Customize your VoxKill experience",
+      "defaultTranscriptionLanguage": "Default transcription language",
+      "summaryLevel": "Summary level",
+      "summaryLanguage": "Summary language",
+      "sameAsTranscription": "Same as transcription",
+      "separateConversation": "Separate conversation",
+      "separateConversationDescription": "Receive transcriptions in a dedicated WhatsApp conversation",
+      "separateConversationProOnly": "Pro feature only",
+      "autoTranscribe": "Auto-transcribe voice messages",
+      "notifications": "Notifications",
+      "emailNotifications": "Email notifications",
+      "usageAlerts": "Quota usage alerts",
+      "saving": "Saving...",
+      "save": "Save",
+      "saved": "Settings saved",
+      "summaryProOnly": "Summaries are only available for Pro accounts",
+      "languages": {
+        "auto": "Auto-detect",
+        "fr": "French",
+        "en": "English",
+        "es": "Spanish",
+        "de": "German",
+        "it": "Italian",
+        "pt": "Portuguese",
+        "nl": "Dutch",
+        "pl": "Polish",
+        "ru": "Russian",
+        "ja": "Japanese",
+        "ko": "Korean",
+        "zh": "Chinese"
+      },
+      "proFeatures": "Unlock Pro Features",
+      "proFeaturesDescription": "Upgrade to Pro to access all advanced features",
+      "proFeature1Title": "Separate Conversation",
+      "proFeature1Description": "Receive your transcriptions in a dedicated WhatsApp conversation for better organization",
+      "proFeature2Title": "Smart Summaries",
+      "proFeature2Description": "Get concise or detailed summaries of your voice messages",
+      "proFeature3Title": "Full Multilingual Support",
+      "proFeature3Description": "Transcription and summaries in over 50 languages",
+      "upgradeToPro": "Upgrade to Pro"
+    },
+    "payment": {
+      "success": "Payment successful! Your subscription is now active.",
+      "cancelled": "Payment cancelled."
+    }
+  },
+  "summaryLevels": {
+    "none": {
+      "name": "No summary",
+      "description": "Transcription only"
+    },
+    "concise": {
+      "name": "Concise summary",
+      "description": "2-3 essential sentences"
+    },
+    "detailed": {
+      "name": "Detailed summary",
+      "description": "Structured key points with actions"
+    },
+    "recommended": "Recommended"
+  },
+  "errors": {
+    "occurred": "An error occurred",
+    "unknown": "Unknown error",
+    "retry": "Retry"
+  }
+}
